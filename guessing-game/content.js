@@ -2,6 +2,7 @@
     const MOVIE_SELECTOR = 'a[href^="/film/"]';
     const GG_REVIEW_SELECTOR = '#content > div > div > section > div.viewing-list.-marginblockstart > div > article > div > div.js-review > div.body-text.-prose.-reset.js-review-body.js-collapsible-text > p';
     const GG_DEBUG_IFRAME = false; // set to false later to hide iframe again
+
     let ggFilmQueue = [];
     let ggCurrentIndex = 0;
     let ggCurrentRating = "";
@@ -10,7 +11,10 @@
     let ggScore = 0;
     let ggTriedFirstPage = false;
 
-
+    let ggGameIframe = null;
+    let ggTotalFilms = 0;
+    let ggFilmOptions = []; // { filmUrl, filmSlug, title }
+    let ggCurrentQuestionIndex = 0;
 
     function createUI() {
         if (document.getElementById("gg-panel")) return;
@@ -95,7 +99,7 @@
         startBtn.style.color = "#fff";
         startBtn.style.fontSize = "13px";
         startBtn.addEventListener("click", () => {
-            const rating = select.value; // empty string means "any"
+            const rating = select.value;
             onStartGame(rating);
         });
 
@@ -139,16 +143,19 @@
 
         ggFilmQueue = filmUrls;
         ggCurrentIndex = 0;
-        ggCurrentRating = rating || ""; // empty means any rating
+        ggCurrentRating = rating || "";
+        ggTotalFilms = filmUrls.length;
 
-        // NEW:
         ggQuestionQueue = [];
         ggScore = 0;
+        ggCurrentQuestionIndex = 0;
+
+        ensureGameIframe();
+        updateGameLoadingUI();
 
         ensureHiddenIframe();
         loadNextReviewPage();
     }
-
 
     function ensureHiddenIframe() {
         if (ggHiddenIframe && ggHiddenIframe.isConnected) return;
@@ -187,19 +194,121 @@
         document.body.appendChild(ggHiddenIframe);
     }
 
+    function ensureGameIframe() {
+        if (ggGameIframe && ggGameIframe.isConnected) return;
 
+        ggGameIframe = document.createElement("iframe");
+        ggGameIframe.id = "gg-game-iframe";
+
+        // Overlay with margin so you can still see Letterboxd behind
+        ggGameIframe.style.position = "fixed";
+        ggGameIframe.style.top = "5%";
+        ggGameIframe.style.left = "5%";
+        ggGameIframe.style.width = "90%";
+        ggGameIframe.style.height = "90%";
+        ggGameIframe.style.border = "2px solid #2c7a7b";
+        ggGameIframe.style.borderRadius = "12px";
+        ggGameIframe.style.boxShadow = "0 8px 24px rgba(0,0,0,0.6)";
+        ggGameIframe.style.zIndex = "1000000";
+        ggGameIframe.style.background = "transparent";
+
+        document.body.appendChild(ggGameIframe);
+
+        const doc = ggGameIframe.contentDocument;
+        doc.open();
+        doc.write(`
+          <!doctype html>
+          <html>
+            <head>
+              <meta charset="utf-8" />
+              <style>
+                body {
+                  margin: 0;
+                  padding: 16px;
+                  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                  background: rgba(0, 0, 0, 0.94);
+                  color: #fff;
+                }
+                #gg-container {
+                  max-width: 800px;
+                  margin: 0 auto;
+                }
+                h2 {
+                  margin-top: 0;
+                  font-size: 20px;
+                }
+                #gg-loading-text {
+                  margin-bottom: 8px;
+                  font-size: 14px;
+                }
+                #gg-progress-outer {
+                  width: 100%;
+                  height: 10px;
+                  border-radius: 999px;
+                  background: #333;
+                  overflow: hidden;
+                }
+                #gg-progress-inner {
+                  height: 100%;
+                  width: 0%;
+                  background: #2c7a7b;
+                  transition: width 0.2s ease-out;
+                }
+              </style>
+            </head>
+            <body>
+              <div id="gg-container">
+                <h2>Guessing Game</h2>
+                <div id="gg-loading-text">Gathering reviews...</div>
+                <div id="gg-progress-outer">
+                  <div id="gg-progress-inner"></div>
+                </div>
+              </div>
+            </body>
+          </html>
+        `);
+        doc.close();
+    }
+
+    function updateGameLoadingUI() {
+        if (!ggGameIframe || !ggTotalFilms) return;
+
+        const doc = ggGameIframe.contentDocument;
+        if (!doc) return;
+
+        const done = ggQuestionQueue.length;
+        const pct = Math.max(0, Math.min(100, Math.round((done / ggTotalFilms) * 100)));
+
+        const textEl = doc.getElementById("gg-loading-text");
+        const barInner = doc.getElementById("gg-progress-inner");
+
+        if (textEl) {
+            textEl.textContent = `Gathering reviews: ${done} / ${ggTotalFilms} (${pct}%)`;
+        }
+        if (barInner) {
+            barInner.style.width = pct + "%";
+        }
+    }
 
     function loadNextReviewPage() {
         if (!ggFilmQueue.length || ggCurrentIndex >= ggFilmQueue.length) {
             console.log("Finished loading review pages for all films");
             console.log("Question queue built:", ggQuestionQueue);
+            updateGameLoadingUI();
             destroyHiddenIframe();
-            // TODO: start the actual game UI using ggQuestionQueue[0]
+
+            if (!ggQuestionQueue.length) {
+                showNoQuestionsUI();
+            } else {
+                shuffleArray(ggQuestionQueue);
+                ggCurrentQuestionIndex = 0;
+                initQuizUI();
+            }
             return;
         }
 
-        ggTriedFirstPage = false; // reset for this film
-        loadReviewPageForCurrentFilm(false); // random page first
+        ggTriedFirstPage = false;
+        loadReviewPageForCurrentFilm(false);
     }
 
     function loadReviewPageForCurrentFilm(forcePage1) {
@@ -228,7 +337,6 @@
         ggHiddenIframe.src = reviewUrl;
     }
 
-
     function destroyHiddenIframe() {
         if (!ggHiddenIframe) return;
 
@@ -238,7 +346,6 @@
 
         console.log("Guessing Game iframe destroyed");
     }
-
 
     function onHiddenIframeLoad() {
         const doc = ggHiddenIframe.contentDocument;
@@ -270,20 +377,31 @@
 
             if (!ggFilmQueue.length) {
                 console.log("No films left in queue that have reviews");
+                updateGameLoadingUI();
                 destroyHiddenIframe();
+                if (!ggQuestionQueue.length) {
+                    showNoQuestionsUI();
+                } else {
+                    initQuizUI();
+                }
                 return;
             }
 
             if (ggCurrentIndex >= ggFilmQueue.length) {
                 console.log("Reached end of queue after removals");
+                updateGameLoadingUI();
                 destroyHiddenIframe();
+                if (!ggQuestionQueue.length) {
+                    showNoQuestionsUI();
+                } else {
+                    initQuizUI();
+                }
                 return;
             }
 
             setTimeout(loadNextReviewPage, 300);
             return;
         }
-
 
         const randomIndex = Math.floor(Math.random() * paragraphs.length);
         const randomParagraph = paragraphs[randomIndex];
@@ -303,22 +421,343 @@
 
         console.log("Added question to queue:", question);
 
+        updateGameLoadingUI();
+
         // Move to next film (this one stays usable in the question queue)
         ggCurrentIndex += 1;
         setTimeout(loadNextReviewPage, 300);
-
     }
 
     function collectFilmUrls() {
         const anchors = document.querySelectorAll(MOVIE_SELECTOR);
 
-        const urls = Array.from(anchors)
-            .map(a => a.getAttribute("href"))
-            .filter(Boolean)
-            .filter((href, index, arr) => arr.indexOf(href) === index)
-            .map(href => new URL(href, window.location.origin).href);
+        const seen = new Set();
+        const urls = [];
+        ggFilmOptions = [];
+
+        anchors.forEach(a => {
+            const href = a.getAttribute("href");
+            if (!href) return;
+            if (seen.has(href)) return;
+            seen.add(href);
+
+            const fullUrl = new URL(href, window.location.origin).href;
+            urls.push(fullUrl);
+
+            const match = href.match(/\/film\/([^/]+)\//);
+            const slug = match ? match[1] : null;
+            const title = (a.textContent || "").trim() || slug || href;
+
+            ggFilmOptions.push({
+                filmUrl: fullUrl,
+                filmSlug: slug,
+                title
+            });
+        });
 
         return urls;
+    }
+
+    function showNoQuestionsUI() {
+        if (!ggGameIframe) return;
+
+        const doc = ggGameIframe.contentDocument;
+        if (!doc) return;
+
+        doc.open();
+        doc.write(`
+          <!doctype html>
+          <html>
+            <head>
+              <meta charset="utf-8" />
+              <style>
+                body {
+                  margin: 0;
+                  padding: 16px;
+                  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                  background: rgba(0, 0, 0, 0.94);
+                  color: #fff;
+                }
+                #gg-container {
+                  max-width: 800px;
+                  margin: 0 auto;
+                  text-align: center;
+                }
+                h2 {
+                  margin-top: 40px;
+                  font-size: 20px;
+                }
+                p {
+                  font-size: 14px;
+                  opacity: 0.85;
+                }
+              </style>
+            </head>
+            <body>
+              <div id="gg-container">
+                <h2>Guessing Game</h2>
+                <p>Could not generate any questions from this list for the selected rating.</p>
+              </div>
+            </body>
+          </html>
+        `);
+        doc.close();
+    }
+
+    function initQuizUI() {
+        if (!ggGameIframe) return;
+
+        const doc = ggGameIframe.contentDocument;
+        if (!doc) return;
+
+        doc.open();
+        doc.write(`
+          <!doctype html>
+          <html>
+            <head>
+              <meta charset="utf-8" />
+              <style>
+                body {
+                  margin: 0;
+                  padding: 16px;
+                  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                  background: rgba(0, 0, 0, 0.94);
+                  color: #fff;
+                }
+                #gg-container {
+                  max-width: 800px;
+                  margin: 0 auto;
+                  position: relative;
+                }
+                h2 {
+                  margin-top: 0;
+                  font-size: 20px;
+                  margin-bottom: 12px;
+                }
+                #gg-score {
+                  position: absolute;
+                  top: 0;
+                  right: 0;
+                  font-size: 14px;
+                  font-weight: 600;
+                }
+                #gg-review-box {
+                  margin-top: 32px;
+                  padding: 12px 14px;
+                  border-radius: 8px;
+                  background: #111;
+                  line-height: 1.5;
+                  font-size: 14px;
+                  max-height: 200px;
+                  overflow-y: auto;
+                  border: 1px solid #333;
+                }
+                #gg-answer-area {
+                  margin-top: 16px;
+                  display: flex;
+                  flex-direction: column;
+                  gap: 8px;
+                }
+                label {
+                  font-size: 13px;
+                  opacity: 0.9;
+                }
+                #gg-search-input {
+                  padding: 6px 8px;
+                  border-radius: 4px;
+                  border: 1px solid #444;
+                  background: #111;
+                  color: #fff;
+                  font-size: 13px;
+                }
+                #gg-answer-select {
+                  padding: 6px 8px;
+                  border-radius: 4px;
+                  border: 1px solid #444;
+                  background: #111;
+                  color: #fff;
+                  font-size: 13px;
+                }
+                #gg-submit-btn {
+                  margin-top: 4px;
+                  padding: 8px 10px;
+                  border-radius: 4px;
+                  border: none;
+                  background: #2c7a7b;
+                  color: #fff;
+                  font-size: 14px;
+                  cursor: pointer;
+                  align-self: flex-start;
+                }
+                #gg-feedback {
+                  margin-top: 8px;
+                  font-size: 13px;
+                }
+              </style>
+            </head>
+            <body>
+              <div id="gg-container">
+                <div id="gg-score">Score: 0</div>
+                <h2>Guessing Game</h2>
+
+                <div id="gg-review-box">
+                  <div id="gg-review-text"></div>
+                </div>
+
+                <div id="gg-answer-area">
+                  <label for="gg-search-input">Search for the film:</label>
+                  <input id="gg-search-input" type="text" placeholder="Type to filter films..." />
+                  <select id="gg-answer-select"></select>
+                  <button id="gg-submit-btn">Confirm guess</button>
+                  <div id="gg-feedback"></div>
+                </div>
+              </div>
+            </body>
+          </html>
+        `);
+        doc.close();
+
+        attachQuizHandlers();
+        renderCurrentQuestion();
+        updateScoreUI();
+    }
+
+    function attachQuizHandlers() {
+        if (!ggGameIframe) return;
+        const doc = ggGameIframe.contentDocument;
+        if (!doc) return;
+
+        const searchInput = doc.getElementById("gg-search-input");
+        const submitBtn = doc.getElementById("gg-submit-btn");
+
+        if (searchInput) {
+            searchInput.addEventListener("input", () => {
+                updateAnswerOptions(searchInput.value || "");
+            });
+        }
+
+        if (submitBtn) {
+            submitBtn.addEventListener("click", handleGuessSubmit);
+        }
+
+        // Initial options
+        updateAnswerOptions("");
+    }
+
+    function updateAnswerOptions(filterText) {
+        if (!ggGameIframe) return;
+        const doc = ggGameIframe.contentDocument;
+        if (!doc) return;
+
+        const selectEl = doc.getElementById("gg-answer-select");
+        if (!selectEl) return;
+
+        const term = (filterText || "").toLowerCase();
+        selectEl.innerHTML = "";
+
+        ggFilmOptions.forEach(opt => {
+            const titleLower = opt.title.toLowerCase();
+            if (!term || titleLower.includes(term)) {
+                const option = doc.createElement("option");
+                option.value = opt.filmSlug || opt.filmUrl;
+                option.textContent = opt.title;
+                selectEl.appendChild(option);
+            }
+        });
+    }
+
+    function renderCurrentQuestion() {
+        if (!ggGameIframe) return;
+        const doc = ggGameIframe.contentDocument;
+        if (!doc) return;
+
+        const reviewBox = doc.getElementById("gg-review-text");
+        const feedbackEl = doc.getElementById("gg-feedback");
+        const searchInput = doc.getElementById("gg-search-input");
+
+        if (!reviewBox) return;
+
+        if (ggCurrentQuestionIndex >= ggQuestionQueue.length) {
+            reviewBox.textContent = "No more questions. You finished the quiz!";
+            if (feedbackEl) {
+                feedbackEl.textContent = "";
+            }
+            return;
+        }
+
+        const question = ggQuestionQueue[ggCurrentQuestionIndex];
+        reviewBox.textContent = question.reviewText;
+
+        if (feedbackEl) {
+            feedbackEl.textContent = "";
+        }
+        if (searchInput) {
+            searchInput.value = "";
+        }
+        updateAnswerOptions("");
+    }
+
+    function updateScoreUI() {
+        if (!ggGameIframe) return;
+        const doc = ggGameIframe.contentDocument;
+        if (!doc) return;
+
+        const scoreEl = doc.getElementById("gg-score");
+        if (scoreEl) {
+            scoreEl.textContent = `Score: ${ggScore}`;
+        }
+    }
+
+    function shuffleArray(arr) {
+        for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+    }
+
+
+    function handleGuessSubmit() {
+        if (!ggGameIframe) return;
+        const doc = ggGameIframe.contentDocument;
+        if (!doc) return;
+
+        if (ggCurrentQuestionIndex >= ggQuestionQueue.length) {
+            return;
+        }
+
+        const selectEl = doc.getElementById("gg-answer-select");
+        const feedbackEl = doc.getElementById("gg-feedback");
+
+        if (!selectEl) return;
+
+        const selectedValue = selectEl.value;
+        const question = ggQuestionQueue[ggCurrentQuestionIndex];
+
+        const correctSlug = question.filmSlug || question.filmUrl;
+
+        const isCorrect = selectedValue && selectedValue === (question.filmSlug || question.filmUrl);
+
+        if (isCorrect) {
+            ggScore += 1;
+            if (feedbackEl) {
+                feedbackEl.textContent = "Correct!";
+                feedbackEl.style.color = "#38a169";
+            }
+        } else {
+            if (feedbackEl) {
+                const filmOpt = ggFilmOptions.find(o => o.filmSlug === question.filmSlug) || null;
+                const filmTitle = filmOpt ? filmOpt.title : "that film";
+                feedbackEl.textContent = `Incorrect. It was: ${filmTitle}`;
+                feedbackEl.style.color = "#e53e3e";
+            }
+        }
+
+        updateScoreUI();
+
+        ggCurrentQuestionIndex += 1;
+        setTimeout(() => {
+            renderCurrentQuestion();
+        }, 700);
     }
 
     if (document.readyState === "loading") {
