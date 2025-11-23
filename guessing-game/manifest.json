@@ -1,8 +1,8 @@
 ﻿{
     "manifest_version":  3,
-    "name":  "Guessing Game",
-    "version":  "25.11.23.2022",
-    "description":  "Injects a custom button on matching pages.",
+    "name":  "LetterBoxd Review Guesser",
+    "version":  "25.11.23.2040",
+    "description":  "Guess the movie from a Letterboxd review — read a review snippet and pick the film. Fast, single‑player quiz",
     "content_scripts":  [
                             {
                                 "matches":  [
