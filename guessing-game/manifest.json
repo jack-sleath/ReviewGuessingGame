@@ -1,18 +1,20 @@
-{
-  "manifest_version": 3,
-  "name": "Guessing Game",
-  "version": "1.0",
-  "description": "Injects a custom button on matching pages.",
-  "content_scripts": [
-    {
-      "matches": [ "*://letterboxd.com/*/list/*" ],
-      "js": [
-        "guessing-game-core.js",
-        "guessing-game-ui.js",
-        "guessing-game-scraper.js",
-        "guessing-game-game.js",
-        "guessing-game-bootstrap.js"
-      ]
-    }
-  ]
+﻿{
+    "manifest_version":  3,
+    "name":  "Guessing Game",
+    "version":  "25.11.23.2022",
+    "description":  "Injects a custom button on matching pages.",
+    "content_scripts":  [
+                            {
+                                "matches":  [
+                                                "*://letterboxd.com/*/list/*"
+                                            ],
+                                "js":  [
+                                           "guessing-game-core.js",
+                                           "guessing-game-ui.js",
+                                           "guessing-game-scraper.js",
+                                           "guessing-game-game.js",
+                                           "guessing-game-bootstrap.js"
+                                       ]
+                            }
+                        ]
 }
