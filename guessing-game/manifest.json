@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Guessing Game",
+  "version": "1.0",
+  "description": "Injects a custom button on matching pages.",
+  "content_scripts": [
+    {
+      "matches": [
+        "*://letterboxd.com/**/list/*"
+      ],
+      "js": [ "content.js" ],
+      "run_at": "document_idle"
+    }
+  ]
+}
