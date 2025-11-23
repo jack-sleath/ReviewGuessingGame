@@ -1,7 +1,8 @@
 ﻿(function () {
     const MOVIE_SELECTOR = 'a[href^="/film/"]';
     const GG_REVIEW_SELECTOR = '#content > div > div > section > div.viewing-list.-marginblockstart > div > article > div > div.js-review > div.body-text.-prose.-reset.js-review-body.js-collapsible-text > p';
-    const GG_DEBUG_IFRAME = false; // set to false later to hide iframe again
+    const GG_DEBUG_IFRAME = false; // set to true if you want to see the scraping iframe
+    const TIMEOUT_LENGTH = 100; // ms
 
     let ggFilmQueue = [];
     let ggCurrentIndex = 0;
@@ -19,7 +20,6 @@
     function createUI() {
         if (document.getElementById("gg-panel")) return;
 
-        // Panel
         const panel = document.createElement("div");
         panel.id = "gg-panel";
 
@@ -39,19 +39,16 @@
         panel.style.gap = "6px";
         panel.style.maxWidth = "220px";
 
-        // Title
         const title = document.createElement("div");
         title.textContent = "Guessing Game";
         title.style.fontWeight = "600";
         title.style.marginBottom = "4px";
 
-        // Rating label
         const label = document.createElement("label");
         label.textContent = "Review rating:";
         label.setAttribute("for", "gg-rating-select");
         label.style.fontSize = "12px";
 
-        // Rating select
         const select = document.createElement("select");
         select.id = "gg-rating-select";
         select.style.width = "100%";
@@ -81,13 +78,11 @@
             select.appendChild(opt);
         });
 
-        // Buttons row
         const buttonsRow = document.createElement("div");
         buttonsRow.style.display = "flex";
         buttonsRow.style.gap = "6px";
         buttonsRow.style.marginTop = "4px";
 
-        // Start button
         const startBtn = document.createElement("button");
         startBtn.textContent = "Start";
         startBtn.style.flex = "1";
@@ -103,7 +98,6 @@
             onStartGame(rating);
         });
 
-        // Close button
         const closeBtn = document.createElement("button");
         closeBtn.textContent = "×";
         closeBtn.style.width = "28px";
@@ -164,7 +158,6 @@
         ggHiddenIframe.id = "gg-hidden-iframe";
 
         if (GG_DEBUG_IFRAME) {
-            // Debug: visible overlay
             ggHiddenIframe.style.position = "fixed";
             ggHiddenIframe.style.top = "10%";
             ggHiddenIframe.style.left = "10%";
@@ -177,7 +170,6 @@
             ggHiddenIframe.style.opacity = "1";
             ggHiddenIframe.style.boxShadow = "0 0 20px rgba(0,0,0,0.6)";
         } else {
-            // Normal: hidden off-screen
             ggHiddenIframe.style.position = "fixed";
             ggHiddenIframe.style.width = "0";
             ggHiddenIframe.style.height = "0";
@@ -194,13 +186,37 @@
         document.body.appendChild(ggHiddenIframe);
     }
 
+    function handleGameClose() {
+        destroyHiddenIframe();
+
+        if (ggGameIframe) {
+            ggGameIframe.remove();
+            ggGameIframe = null;
+        }
+
+        ggFilmQueue = [];
+        ggQuestionQueue = [];
+        ggCurrentIndex = 0;
+        ggCurrentQuestionIndex = 0;
+    }
+
+    function attachBaseGameHandlers() {
+        if (!ggGameIframe) return;
+        const doc = ggGameIframe.contentDocument;
+        if (!doc) return;
+
+        const closeBtn = doc.getElementById("gg-close-btn");
+        if (closeBtn) {
+            closeBtn.addEventListener("click", handleGameClose);
+        }
+    }
+
     function ensureGameIframe() {
         if (ggGameIframe && ggGameIframe.isConnected) return;
 
         ggGameIframe = document.createElement("iframe");
         ggGameIframe.id = "gg-game-iframe";
 
-        // Overlay with margin so you can still see Letterboxd behind
         ggGameIframe.style.position = "fixed";
         ggGameIframe.style.top = "5%";
         ggGameIframe.style.left = "5%";
@@ -232,6 +248,18 @@
                 #gg-container {
                   max-width: 800px;
                   margin: 0 auto;
+                  position: relative;
+                }
+                #gg-close-btn {
+                  position: absolute;
+                  top: 0;
+                  right: 0;
+                  background: transparent;
+                  border: none;
+                  color: #fff;
+                  font-size: 18px;
+                  cursor: pointer;
+                  padding: 0 4px;
                 }
                 h2 {
                   margin-top: 0;
@@ -258,6 +286,7 @@
             </head>
             <body>
               <div id="gg-container">
+                <button id="gg-close-btn" type="button">×</button>
                 <h2>Guessing Game</h2>
                 <div id="gg-loading-text">Gathering reviews...</div>
                 <div id="gg-progress-outer">
@@ -268,6 +297,7 @@
           </html>
         `);
         doc.close();
+        attachBaseGameHandlers();
     }
 
     function updateGameLoadingUI() {
@@ -352,7 +382,7 @@
         if (!doc) {
             console.warn("No contentDocument on hidden iframe");
             ggCurrentIndex += 1;
-            setTimeout(loadNextReviewPage, 300);
+            setTimeout(loadNextReviewPage, TIMEOUT_LENGTH);
             return;
         }
 
@@ -367,11 +397,10 @@
             if (!ggTriedFirstPage) {
                 ggTriedFirstPage = true;
                 console.log("Trying page 1 for this film instead");
-                setTimeout(() => loadReviewPageForCurrentFilm(true), 200);
+                setTimeout(() => loadReviewPageForCurrentFilm(true), TIMEOUT_LENGTH);
                 return;
             }
 
-            // Already tried page 1 as well: remove film from queue
             const removed = ggFilmQueue.splice(ggCurrentIndex, 1);
             console.log("Removing film from queue due to no review text on any page:", removed[0]);
 
@@ -382,6 +411,8 @@
                 if (!ggQuestionQueue.length) {
                     showNoQuestionsUI();
                 } else {
+                    shuffleArray(ggQuestionQueue);
+                    ggCurrentQuestionIndex = 0;
                     initQuizUI();
                 }
                 return;
@@ -394,12 +425,14 @@
                 if (!ggQuestionQueue.length) {
                     showNoQuestionsUI();
                 } else {
+                    shuffleArray(ggQuestionQueue);
+                    ggCurrentQuestionIndex = 0;
                     initQuizUI();
                 }
                 return;
             }
 
-            setTimeout(loadNextReviewPage, 300);
+            setTimeout(loadNextReviewPage, TIMEOUT_LENGTH);
             return;
         }
 
@@ -423,9 +456,8 @@
 
         updateGameLoadingUI();
 
-        // Move to next film (this one stays usable in the question queue)
         ggCurrentIndex += 1;
-        setTimeout(loadNextReviewPage, 300);
+        setTimeout(loadNextReviewPage, TIMEOUT_LENGTH);
     }
 
     function collectFilmUrls() {
@@ -482,6 +514,18 @@
                   max-width: 800px;
                   margin: 0 auto;
                   text-align: center;
+                  position: relative;
+                }
+                #gg-close-btn {
+                  position: absolute;
+                  top: 0;
+                  right: 0;
+                  background: transparent;
+                  border: none;
+                  color: #fff;
+                  font-size: 18px;
+                  cursor: pointer;
+                  padding: 0 4px;
                 }
                 h2 {
                   margin-top: 40px;
@@ -495,6 +539,7 @@
             </head>
             <body>
               <div id="gg-container">
+                <button id="gg-close-btn" type="button">×</button>
                 <h2>Guessing Game</h2>
                 <p>Could not generate any questions from this list for the selected rating.</p>
               </div>
@@ -502,6 +547,7 @@
           </html>
         `);
         doc.close();
+        attachBaseGameHandlers();
     }
 
     function initQuizUI() {
@@ -529,6 +575,17 @@
                   margin: 0 auto;
                   position: relative;
                 }
+                #gg-close-btn {
+                  position: absolute;
+                  top: 0;
+                  right: 0;
+                  background: transparent;
+                  border: none;
+                  color: #fff;
+                  font-size: 18px;
+                  cursor: pointer;
+                  padding: 0 4px;
+                }
                 h2 {
                   margin-top: 0;
                   font-size: 20px;
@@ -537,7 +594,7 @@
                 #gg-score {
                   position: absolute;
                   top: 0;
-                  right: 0;
+                  right: 32px;
                   font-size: 14px;
                   font-weight: 600;
                 }
@@ -597,6 +654,7 @@
             </head>
             <body>
               <div id="gg-container">
+                <button id="gg-close-btn" type="button">×</button>
                 <div id="gg-score">Score: 0</div>
                 <h2>Guessing Game</h2>
 
@@ -617,6 +675,7 @@
         `);
         doc.close();
 
+        attachBaseGameHandlers();
         attachQuizHandlers();
         renderCurrentQuestion();
         updateScoreUI();
@@ -640,7 +699,6 @@
             submitBtn.addEventListener("click", handleGuessSubmit);
         }
 
-        // Initial options
         updateAnswerOptions("");
     }
 
@@ -715,7 +773,6 @@
         }
     }
 
-
     function handleGuessSubmit() {
         if (!ggGameIframe) return;
         const doc = ggGameIframe.contentDocument;
@@ -732,8 +789,6 @@
 
         const selectedValue = selectEl.value;
         const question = ggQuestionQueue[ggCurrentQuestionIndex];
-
-        const correctSlug = question.filmSlug || question.filmUrl;
 
         const isCorrect = selectedValue && selectedValue === (question.filmSlug || question.filmUrl);
 
