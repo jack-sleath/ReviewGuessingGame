@@ -230,6 +230,15 @@
                   font-size: 13px;
                   opacity: 0.9;
                 }
+                #gg-search-input-placeholder { /* styling for the dummy hidden input to stay hidden */
+                  position: absolute;
+                  left: -9999px;
+                  top: -9999px;
+                  width: 1px;
+                  height: 1px;
+                  opacity: 0;
+                  border: 0;
+                }
                 #gg-search-input {
                   padding: 6px 8px;
                   border-radius: 4px;
@@ -382,14 +391,21 @@
             scoreEl.style.display = "block";
         }
 
+        // generate a unique id/name for the search input each time to avoid browser autofill heuristics
+        const uniqueId = `gg-search-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+        state._searchInputId = uniqueId;
+
         main.innerHTML = `
+          <!-- hidden dummy input to further reduce autofill hints -->
+          <input id="gg-search-input-placeholder" name="nope" autocomplete="off" type="text" />
+
           <div id="gg-review-box">
             <div id="gg-review-text"></div>
           </div>
 
           <div id="gg-answer-area">
-            <label for="gg-search-input">Search for the film:</label>
-            <input id="gg-search-input" type="text" placeholder="Type to filter films..." />
+            <label for="${uniqueId}">Search for the film:</label>
+            <input id="${uniqueId}" name="${uniqueId}" type="text" placeholder="Type to filter films..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
             <select id="gg-answer-select"></select>
             <button id="gg-submit-btn">Confirm guess</button>
             <div id="gg-feedback"></div>
@@ -435,13 +451,26 @@
         const doc = iframe.contentDocument;
         if (!doc) return;
 
-        const searchInput = doc.getElementById("gg-search-input");
+        // use the dynamic id if available, otherwise fall back to the legacy id
+        const searchInputId = state._searchInputId || 'gg-search-input';
+        const searchInput = doc.getElementById(searchInputId);
         const submitBtn = doc.getElementById("gg-submit-btn");
 
         if (searchInput) {
             searchInput.addEventListener("input", () => {
                 GG.ui.updateAnswerOptions(searchInput.value || "");
             });
+
+            // disable browser autocomplete behaviors explicitly on the element as well
+            try {
+                searchInput.setAttribute('autocomplete', 'off');
+                searchInput.setAttribute('autocorrect', 'off');
+                searchInput.setAttribute('autocapitalize', 'off');
+                searchInput.setAttribute('spellcheck', 'false');
+                searchInput.name = searchInputId;
+            } catch (e) {
+                // ignore
+            }
         }
 
         if (submitBtn) {
@@ -482,7 +511,10 @@
 
         const reviewBox = doc.getElementById("gg-review-text");
         const feedbackEl = doc.getElementById("gg-feedback");
-        const searchInput = doc.getElementById("gg-search-input");
+
+        // use dynamic id when clearing the search input
+        const searchInputId = state._searchInputId || 'gg-search-input';
+        const searchInput = doc.getElementById(searchInputId);
 
         if (!reviewBox) return;
 

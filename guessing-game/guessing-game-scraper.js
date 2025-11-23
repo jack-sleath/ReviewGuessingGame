@@ -20,7 +20,7 @@
     GG.scraper.destroyHiddenIframe = function destroyHiddenIframe() {
         // No-op in fetch-based scraper
         state.hiddenIframe = null;
-        console.log("Guessing Game hidden iframe disabled (fetch-based scraping)");
+        GG.logger.log("Guessing Game hidden iframe disabled (fetch-based scraping)");
     };
 
     /**
@@ -29,13 +29,13 @@
      */
     GG.scraper.loadNextReviewPage = function loadNextReviewPage() {
         if (!state.filmQueue.length) {
-            console.log("No films to scrape");
+            GG.logger.log("No films to scrape");
             GG.ui.updateLoading();
             GG.ui.showNoQuestions();
             return;
         }
 
-        console.log("Starting fetch-based scraping for films:", state.filmQueue);
+        GG.logger.log("Starting fetch-based scraping for films:", state.filmQueue);
 
         state.currentIndex = 0;
         state.activeRequests = 0;
@@ -69,7 +69,7 @@
         const match = filmUrl.match(/\/film\/([^/]+)\//);
 
         if (!match) {
-            console.warn("Could not extract film slug from URL:", filmUrl);
+            GG.logger.warn("Could not extract film slug from URL:", filmUrl);
             onFilmFinished();
             return;
         }
@@ -80,13 +80,13 @@
             .then(question => {
                 if (question) {
                     state.questionQueue.push(question);
-                    console.log("Added question to queue:", question);
+                    GG.logger.log("Added question to queue:", question);
                 } else {
-                    console.log("No usable review found for film:", filmUrl);
+                    GG.logger.log("No usable review found for film:", filmUrl);
                 }
             })
             .catch(err => {
-                console.error("Error fetching review for film:", filmUrl, err);
+                GG.logger.error("Error fetching review for film:", filmUrl, err);
             })
             .finally(() => {
                 GG.ui.updateLoading();
@@ -113,8 +113,8 @@
         }
 
         // All films done.
-        console.log("Finished fetching review pages for all films");
-        console.log("Question queue built:", state.questionQueue);
+        GG.logger.log("Finished fetching review pages for all films");
+        GG.logger.log("Question queue built:", state.questionQueue);
 
         GG.scraper.destroyHiddenIframe(); // no-op but keeps logs consistent
 
@@ -144,7 +144,7 @@
             reviewUrl = `https://letterboxd.com/film/${slug}/reviews/page/${pageToUse}/`;
         }
 
-        console.log(
+        GG.logger.log(
             `Fetching reviews for film ${slug}, page ${pageToUse}:`,
             reviewUrl
         );
@@ -163,7 +163,7 @@
                 const doc = parser.parseFromString(htmlText, "text/html");
 
                 const paragraphs = doc.querySelectorAll(config.REVIEW_SELECTOR);
-                console.log(
+                GG.logger.log(
                     "Found review paragraphs via fetch:",
                     paragraphs.length,
                     "for film:",
@@ -173,7 +173,7 @@
                 if (!paragraphs.length) {
                     // No reviews on this page; if we haven't tried page 1 yet, do that once.
                     if (!triedFirstPage) {
-                        console.log("No reviews; trying page 1 for this film instead");
+                        GG.logger.log("No reviews; trying page 1 for this film instead");
                         return fetchReviewForSlug(filmUrl, slug, true);
                     }
                     // Already tried page 1; give up on this film.
@@ -194,10 +194,10 @@
                 };
             })
             .catch(err => {
-                console.error("Error during fetch/parse for film:", filmUrl, err);
+                GG.logger.error("Error during fetch/parse for film:", filmUrl, err);
                 // If random page failed and we haven't yet tried page 1, we can attempt that too
                 if (!triedFirstPage) {
-                    console.log("Retrying film on page 1 after error");
+                    GG.logger.log("Retrying film on page 1 after error");
                     return fetchReviewForSlug(filmUrl, slug, true);
                 }
                 return null;

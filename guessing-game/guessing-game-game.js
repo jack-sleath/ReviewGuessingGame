@@ -6,13 +6,13 @@
     GG.game = GG.game || {};
 
     GG.game.start = function startGame(rating) {
-        console.log("Starting Guessing Game with rating:", rating || "any");
+        GG.logger.log("Starting Guessing Game with rating:", rating || "any");
 
         const filmUrls = GG.scraper.collectFilmUrls();
-        console.log("Collected film URLs:", filmUrls);
+        GG.logger.log("Collected film URLs:", filmUrls);
 
         if (!filmUrls.length) {
-            console.warn("No film URLs found on this page");
+            GG.logger.warn("No film URLs found on this page");
             return;
         }
 
@@ -46,7 +46,7 @@
         state.currentQuestionIndex = 0;
         state.totalFilms = 0;
 
-        console.log("Guessing Game closed");
+        GG.logger.log("Guessing Game closed");
     };
 
     GG.game.handleGuessSubmit = function handleGuessSubmit() {
