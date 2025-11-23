@@ -5,11 +5,14 @@
   "description": "Injects a custom button on matching pages.",
   "content_scripts": [
     {
-      "matches": [
-        "*://letterboxd.com/**/list/*"
-      ],
-      "js": [ "content.js" ],
-      "run_at": "document_idle"
+      "matches": [ "*://letterboxd.com/*/list/*" ],
+      "js": [
+        "guessing-game-core.js",
+        "guessing-game-ui.js",
+        "guessing-game-scraper.js",
+        "guessing-game-game.js",
+        "guessing-game-bootstrap.js"
+      ]
     }
   ]
 }
