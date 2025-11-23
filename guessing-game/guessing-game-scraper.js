@@ -5,77 +5,137 @@
 
     GG.scraper = GG.scraper || {};
 
+    // How many films to fetch in parallel.
+    const MAX_CONCURRENT_REQUESTS = 4;
+
+    /**
+     * These are now mostly no-ops kept for compatibility.
+     * Game.start still calls ensureHiddenIframe + loadNextReviewPage
+     * but all real work is done via fetch.
+     */
     GG.scraper.ensureHiddenIframe = function ensureHiddenIframe() {
-        if (state.hiddenIframe && state.hiddenIframe.isConnected) return;
-
-        const iframe = document.createElement("iframe");
-        iframe.id = "gg-hidden-iframe";
-
-        if (config.DEBUG_IFRAME) {
-            iframe.style.position = "fixed";
-            iframe.style.top = "10%";
-            iframe.style.left = "10%";
-            iframe.style.width = "80vw";
-            iframe.style.height = "80vh";
-            iframe.style.border = "2px solid red";
-            iframe.style.zIndex = "999999";
-            iframe.style.background = "#fff";
-            iframe.style.pointerEvents = "auto";
-            iframe.style.opacity = "1";
-            iframe.style.boxShadow = "0 0 20px rgba(0,0,0,0.6)";
-        } else {
-            iframe.style.position = "fixed";
-            iframe.style.width = "0";
-            iframe.style.height = "0";
-            iframe.style.border = "0";
-            iframe.style.opacity = "0";
-            iframe.style.pointerEvents = "none";
-            iframe.style.left = "-9999px";
-            iframe.style.bottom = "0";
-            iframe.style.zIndex = "0";
-        }
-
-        iframe.addEventListener("load", GG.scraper.onHiddenIframeLoad);
-
-        document.body.appendChild(iframe);
-        state.hiddenIframe = iframe;
+        // No-op in fetch-based scraper
     };
 
-    GG.scraper.loadNextReviewPage = function loadNextReviewPage() {
-        if (!state.filmQueue.length || state.currentIndex >= state.filmQueue.length) {
-            console.log("Finished loading review pages for all films");
-            console.log("Question queue built:", state.questionQueue);
-            GG.ui.updateLoading();
-            GG.scraper.destroyHiddenIframe();
+    GG.scraper.destroyHiddenIframe = function destroyHiddenIframe() {
+        // No-op in fetch-based scraper
+        state.hiddenIframe = null;
+        console.log("Guessing Game hidden iframe disabled (fetch-based scraping)");
+    };
 
-            if (!state.questionQueue.length) {
-                GG.ui.showNoQuestions();
-            } else {
-                GG.utils.shuffleArray(state.questionQueue);
-                state.currentQuestionIndex = 0;
-                GG.ui.initQuiz();
-            }
+    /**
+     * Entry point from GG.game.start
+     * Kicks off the concurrent fetch pipeline.
+     */
+    GG.scraper.loadNextReviewPage = function loadNextReviewPage() {
+        if (!state.filmQueue.length) {
+            console.log("No films to scrape");
+            GG.ui.updateLoading();
+            GG.ui.showNoQuestions();
             return;
         }
 
-        state.triedFirstPage = false;
-        GG.scraper.loadReviewPageForCurrentFilm(false);
+        console.log("Starting fetch-based scraping for films:", state.filmQueue);
+
+        state.currentIndex = 0;
+        state.activeRequests = 0;
+
+        GG.ui.updateLoading();
+        fillRequestSlots();
     };
 
-    GG.scraper.loadReviewPageForCurrentFilm = function loadReviewPageForCurrentFilm(forcePage1) {
-        const filmUrl = state.filmQueue[state.currentIndex];
+    /**
+     * Fill up concurrency slots until we either:
+     * - reach MAX_CONCURRENT_REQUESTS
+     * - or run out of films to start
+     */
+    function fillRequestSlots() {
+        while (
+            state.activeRequests < MAX_CONCURRENT_REQUESTS &&
+            state.currentIndex < state.filmQueue.length
+        ) {
+            const index = state.currentIndex;
+            state.currentIndex += 1;
+            state.activeRequests += 1;
+            scrapeFilmAt(index);
+        }
+    }
+
+    /**
+     * Scrape a single film (one or two pages, random then fallback to page 1).
+     */
+    function scrapeFilmAt(index) {
+        const filmUrl = state.filmQueue[index];
         const match = filmUrl.match(/\/film\/([^/]+)\//);
 
         if (!match) {
             console.warn("Could not extract film slug from URL:", filmUrl);
-            state.currentIndex += 1;
-            GG.scraper.loadNextReviewPage();
+            onFilmFinished();
             return;
         }
 
         const slug = match[1];
+
+        fetchReviewForSlug(filmUrl, slug, false)
+            .then(question => {
+                if (question) {
+                    state.questionQueue.push(question);
+                    console.log("Added question to queue:", question);
+                } else {
+                    console.log("No usable review found for film:", filmUrl);
+                }
+            })
+            .catch(err => {
+                console.error("Error fetching review for film:", filmUrl, err);
+            })
+            .finally(() => {
+                GG.ui.updateLoading();
+                onFilmFinished();
+            });
+    }
+
+    /**
+     * Called after each film finishes (successfully or not).
+     * Decides whether to start more work or finish the whole scrape.
+     */
+    function onFilmFinished() {
+        state.activeRequests -= 1;
+
+        // If there are still films left to start, fill more slots.
+        if (state.currentIndex < state.filmQueue.length) {
+            fillRequestSlots();
+            return;
+        }
+
+        // No more films to start; wait for all active requests to finish.
+        if (state.activeRequests > 0) {
+            return;
+        }
+
+        // All films done.
+        console.log("Finished fetching review pages for all films");
+        console.log("Question queue built:", state.questionQueue);
+
+        GG.scraper.destroyHiddenIframe(); // no-op but keeps logs consistent
+
+        if (!state.questionQueue.length) {
+            GG.ui.showNoQuestions();
+        } else {
+            GG.utils.shuffleArray(state.questionQueue);
+            state.currentQuestionIndex = 0;
+            GG.ui.initQuiz();
+        }
+    }
+
+    /**
+     * Fetch a review page (random page first, then fallback to page 1 if needed).
+     * Returns a Promise that resolves to:
+     *  - { filmUrl, filmSlug, reviewText } if a review is found
+     *  - null otherwise
+     */
+    function fetchReviewForSlug(filmUrl, slug, triedFirstPage) {
         const randomPage = Math.floor(Math.random() * 100) + 1;
-        const pageToUse = forcePage1 ? 1 : randomPage;
+        const pageToUse = triedFirstPage ? 1 : randomPage;
 
         let reviewUrl;
         if (state.currentRating) {
@@ -84,117 +144,70 @@
             reviewUrl = `https://letterboxd.com/film/${slug}/reviews/page/${pageToUse}/`;
         }
 
-        console.log(`Loading reviews for film ${slug}, page ${pageToUse}:`, reviewUrl);
-        if (state.hiddenIframe) {
-            state.hiddenIframe.src = reviewUrl;
-        }
-    };
-
-    GG.scraper.destroyHiddenIframe = function destroyHiddenIframe() {
-        const iframe = state.hiddenIframe;
-        if (!iframe) return;
-
-        iframe.removeEventListener("load", GG.scraper.onHiddenIframeLoad);
-        iframe.remove();
-        state.hiddenIframe = null;
-
-        console.log("Guessing Game hidden iframe destroyed");
-    };
-
-    GG.scraper.onHiddenIframeLoad = function onHiddenIframeLoad() {
-        const iframe = state.hiddenIframe;
-        if (!iframe) {
-            console.warn("No hidden iframe present");
-            return;
-        }
-
-        const doc = iframe.contentDocument;
-        if (!doc) {
-            console.warn("No contentDocument on hidden iframe");
-            state.currentIndex += 1;
-            setTimeout(GG.scraper.loadNextReviewPage, config.TIMEOUT_LENGTH);
-            return;
-        }
-
-        console.log("Iframe loaded:", doc.location.href);
-
-        const paragraphs = doc.querySelectorAll(config.REVIEW_SELECTOR);
         console.log(
-            "Found review paragraphs:",
-            paragraphs.length,
-            "for film:",
-            state.filmQueue[state.currentIndex]
+            `Fetching reviews for film ${slug}, page ${pageToUse}:`,
+            reviewUrl
         );
 
-        if (!paragraphs.length) {
-            console.log("No matching review paragraphs on this page for film:", state.filmQueue[state.currentIndex]);
-
-            if (!state.triedFirstPage) {
-                state.triedFirstPage = true;
-                console.log("Trying page 1 for this film instead");
-                setTimeout(() => GG.scraper.loadReviewPageForCurrentFilm(true), config.TIMEOUT_LENGTH);
-                return;
-            }
-
-            const removed = state.filmQueue.splice(state.currentIndex, 1);
-            console.log("Removing film from queue due to no review text on any page:", removed[0]);
-
-            if (!state.filmQueue.length) {
-                console.log("No films left in queue that have reviews");
-                GG.ui.updateLoading();
-                GG.scraper.destroyHiddenIframe();
-                if (!state.questionQueue.length) {
-                    GG.ui.showNoQuestions();
-                } else {
-                    GG.utils.shuffleArray(state.questionQueue);
-                    state.currentQuestionIndex = 0;
-                    GG.ui.initQuiz();
+        return fetch(reviewUrl, {
+            credentials: "include" // so logged-in cookies still apply
+        })
+            .then(resp => {
+                if (!resp.ok) {
+                    throw new Error(`HTTP ${resp.status}`);
                 }
-                return;
-            }
+                return resp.text();
+            })
+            .then(htmlText => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(htmlText, "text/html");
 
-            if (state.currentIndex >= state.filmQueue.length) {
-                console.log("Reached end of queue after removals");
-                GG.ui.updateLoading();
-                GG.scraper.destroyHiddenIframe();
-                if (!state.questionQueue.length) {
-                    GG.ui.showNoQuestions();
-                } else {
-                    GG.utils.shuffleArray(state.questionQueue);
-                    state.currentQuestionIndex = 0;
-                    GG.ui.initQuiz();
+                const paragraphs = doc.querySelectorAll(config.REVIEW_SELECTOR);
+                console.log(
+                    "Found review paragraphs via fetch:",
+                    paragraphs.length,
+                    "for film:",
+                    filmUrl
+                );
+
+                if (!paragraphs.length) {
+                    // No reviews on this page; if we haven't tried page 1 yet, do that once.
+                    if (!triedFirstPage) {
+                        console.log("No reviews; trying page 1 for this film instead");
+                        return fetchReviewForSlug(filmUrl, slug, true);
+                    }
+                    // Already tried page 1; give up on this film.
+                    return null;
                 }
-                return;
-            }
 
-            setTimeout(GG.scraper.loadNextReviewPage, config.TIMEOUT_LENGTH);
-            return;
-        }
+                const randomIndex = Math.floor(Math.random() * paragraphs.length);
+                const randomParagraph = paragraphs[randomIndex];
+                const reviewText = randomParagraph.innerText.trim();
 
-        const randomIndex = Math.floor(Math.random() * paragraphs.length);
-        const randomParagraph = paragraphs[randomIndex];
-        const reviewText = randomParagraph.innerText.trim();
+                const slugMatch = filmUrl.match(/\/film\/([^/]+)\//);
+                const filmSlug = slugMatch ? slugMatch[1] : null;
 
-        const filmUrl = state.filmQueue[state.currentIndex];
-        const slugMatch = filmUrl.match(/\/film\/([^/]+)\//);
-        const filmSlug = slugMatch ? slugMatch[1] : null;
+                return {
+                    filmUrl,
+                    filmSlug,
+                    reviewText
+                };
+            })
+            .catch(err => {
+                console.error("Error during fetch/parse for film:", filmUrl, err);
+                // If random page failed and we haven't yet tried page 1, we can attempt that too
+                if (!triedFirstPage) {
+                    console.log("Retrying film on page 1 after error");
+                    return fetchReviewForSlug(filmUrl, slug, true);
+                }
+                return null;
+            });
+    }
 
-        const question = {
-            filmUrl,
-            filmSlug,
-            reviewText
-        };
-
-        state.questionQueue.push(question);
-
-        console.log("Added question to queue:", question);
-
-        GG.ui.updateLoading();
-
-        state.currentIndex += 1;
-        setTimeout(GG.scraper.loadNextReviewPage, config.TIMEOUT_LENGTH);
-    };
-
+    /**
+     * Collect film URLs and populate state.filmOptions
+     * (unchanged from your previous version).
+     */
     GG.scraper.collectFilmUrls = function collectFilmUrls() {
         const anchors = document.querySelectorAll(config.MOVIE_SELECTOR);
 

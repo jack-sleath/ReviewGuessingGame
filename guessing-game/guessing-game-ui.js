@@ -141,17 +141,24 @@
             <head>
               <meta charset="utf-8" />
               <style>
-                body {
+                html, body {
+                  height: 100%;
                   margin: 0;
+                  padding: 0;
+                  overflow: hidden; /* prevent outer scrolling */
+                }
+                body {
                   padding: 16px;
                   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
                   background: rgba(0, 0, 0, 0.94);
                   color: #fff;
+                  box-sizing: border-box;
                 }
                 #gg-container {
                   max-width: 800px;
                   margin: 0 auto;
                   position: relative;
+                  height: 100%;
                 }
                 #gg-close-btn {
                   position: absolute;
@@ -179,6 +186,9 @@
                 }
                 #gg-main-view {
                   margin-top: 16px;
+                  /* allow internal scrolling but prevent document scrollbars */
+                  height: calc(100% - 56px);
+                  overflow: auto;
                 }
                 /* Loading view */
                 #gg-loading-text {
@@ -257,6 +267,29 @@
                   font-size: 14px;
                   opacity: 0.85;
                   text-align: center;
+                }
+                /* Final score view */
+                #gg-final-score {
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  height: 90%;
+                  text-align: center;
+                }
+                #gg-final-score .score-box {
+                  padding: 24px;
+                  background: rgba(17,17,17,0.9);
+                  border-radius: 12px;
+                  border: 1px solid #333;
+                }
+                #gg-final-score .score-number {
+                  font-size: 40px;
+                  font-weight: 700;
+                  margin-bottom: 8px;
+                }
+                #gg-final-score .score-subtext {
+                  font-size: 16px;
+                  opacity: 0.9;
                 }
               </style>
             </head>
@@ -454,7 +487,8 @@
         if (!reviewBox) return;
 
         if (state.currentQuestionIndex >= state.questionQueue.length) {
-            reviewBox.textContent = "No more questions. You finished the quiz!";
+            // show final score instead of the plain finished text
+            GG.ui.showFinalScore();
             if (feedbackEl) {
                 feedbackEl.textContent = "";
             }
@@ -471,6 +505,32 @@
             searchInput.value = "";
         }
         GG.ui.updateAnswerOptions("");
+    };
+
+    // New: show final score centered in the main view
+    GG.ui.showFinalScore = function showFinalScore() {
+        const iframe = state.gameIframe;
+        if (!iframe) return;
+        const doc = iframe.contentDocument;
+        if (!doc) return;
+
+        const main = doc.getElementById("gg-main-view");
+        const scoreEl = doc.getElementById("gg-score");
+        if (!main) return;
+
+        if (scoreEl) scoreEl.style.display = "none";
+
+        const total = state.questionQueue ? state.questionQueue.length : 0;
+        const score = typeof state.score === 'number' ? state.score : 0;
+
+        main.innerHTML = `
+          <div id="gg-final-score">
+            <div class="score-box">
+              <div class="score-number">${score} / ${total}</div>
+              <div class="score-subtext">Your final score</div>
+            </div>
+          </div>
+        `;
     };
 
     GG.ui.updateScore = function updateScoreUI() {
