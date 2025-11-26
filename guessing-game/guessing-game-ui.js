@@ -102,6 +102,30 @@
         });
 
         buttonsRow.appendChild(startBtn);
+
+        // Show a debug button when debug mode is enabled so the developer can open the full quiz UI immediately
+        try {
+            if (GG.config && GG.config.DEBUG) {
+                const debugBtn = document.createElement("button");
+                debugBtn.textContent = "Debug UI";
+                debugBtn.style.flex = "1";
+                debugBtn.style.padding = "4px 8px";
+                debugBtn.style.border = "none";
+                debugBtn.style.borderRadius = "4px";
+                debugBtn.style.cursor = "pointer";
+                debugBtn.style.background = "#6b46c1";
+                debugBtn.style.color = "#fff";
+                debugBtn.style.fontSize = "13px";
+                debugBtn.addEventListener("click", () => {
+                    GG.ui.openDebugUI();
+                });
+
+                buttonsRow.appendChild(debugBtn);
+            }
+        } catch (e) {
+            // ignore
+        }
+
         buttonsRow.appendChild(closeBtn);
 
         panel.appendChild(title);
@@ -120,198 +144,180 @@
         iframe.id = "gg-game-iframe";
 
         iframe.style.position = "fixed";
-        iframe.style.top = "5%";
-        iframe.style.left = "5%";
-        iframe.style.width = "90%";
-        iframe.style.height = "90%";
-        iframe.style.border = "2px solid #2c7a7b";
-        iframe.style.borderRadius = "12px";
-        iframe.style.boxShadow = "0 8px 24px rgba(0,0,0,0.6)";
+        iframe.style.top = "0";
+        iframe.style.left = "0";
+        iframe.style.width = "100%";
+        iframe.style.height = "100%";
+        iframe.style.border = "none";
+        iframe.style.borderRadius = "0";
+        iframe.style.boxShadow = "none";
         iframe.style.zIndex = "1000000";
-        iframe.style.background = "transparent";
+        iframe.style.background = "rgba(0, 0, 0, 0.8)";
 
         document.body.appendChild(iframe);
         state.gameIframe = iframe;
 
         const doc = iframe.contentDocument;
         doc.open();
-        doc.write(`
-          <!doctype html>
-          <html>
-            <head>
-              <meta charset="utf-8" />
-              <style>
-                html, body {
-                  height: 100%;
-                  margin: 0;
-                  padding: 0;
-                  overflow: hidden; /* prevent outer scrolling */
-                }
-                body {
-                  padding: 16px;
-                  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-                  background: rgba(0, 0, 0, 0.94);
-                  color: #fff;
-                  box-sizing: border-box;
-                }
-                #gg-container {
-                  max-width: 800px;
-                  margin: 0 auto;
-                  position: relative;
-                  height: 100%;
-                }
-                #gg-close-btn {
-                  position: absolute;
-                  top: 0;
-                  right: 0;
-                  background: transparent;
-                  border: none;
-                  color: #fff;
-                  font-size: 18px;
-                  cursor: pointer;
-                  padding: 0 4px;
-                }
-                h2 {
-                  margin-top: 0;
-                  font-size: 20px;
-                  margin-bottom: 8px;
-                }
-                #gg-score {
-                  position: absolute;
-                  top: 0;
-                  right: 32px;
-                  font-size: 14px;
-                  font-weight: 600;
-                  display: none;
-                }
-                #gg-main-view {
-                  margin-top: 16px;
-                  /* allow internal scrolling but prevent document scrollbars */
-                  height: calc(100% - 56px);
-                  overflow: auto;
-                }
-                /* Loading view */
-                #gg-loading-text {
-                  margin-bottom: 8px;
-                  font-size: 14px;
-                }
-                #gg-progress-outer {
-                  width: 100%;
-                  height: 10px;
-                  border-radius: 999px;
-                  background: #333;
-                  overflow: hidden;
-                }
-                #gg-progress-inner {
-                  height: 100%;
-                  width: 0%;
-                  background: #2c7a7b;
-                  transition: width 0.2s ease-out;
-                }
-                /* Quiz view */
-                #gg-review-box {
-                  margin-top: 16px;
-                  padding: 12px 14px;
-                  border-radius: 8px;
-                  background: #111;
-                  line-height: 1.5;
-                  font-size: 14px;
-                  max-height: 200px;
-                  overflow-y: auto;
-                  border: 1px solid #333;
-                }
-                #gg-answer-area {
-                  margin-top: 16px;
-                  display: flex;
-                  flex-direction: column;
-                  gap: 8px;
-                }
-                label {
-                  font-size: 13px;
-                  opacity: 0.9;
-                }
-                #gg-search-input-placeholder { /* styling for the dummy hidden input to stay hidden */
-                  position: absolute;
-                  left: -9999px;
-                  top: -9999px;
-                  width: 1px;
-                  height: 1px;
-                  opacity: 0;
-                  border: 0;
-                }
-                #gg-search-input {
-                  padding: 6px 8px;
-                  border-radius: 4px;
-                  border: 1px solid #444;
-                  background: #111;
-                  color: #fff;
-                  font-size: 13px;
-                }
-                #gg-answer-select {
-                  padding: 6px 8px;
-                  border-radius: 4px;
-                  border: 1px solid #444;
-                  background: #111;
-                  color: #fff;
-                  font-size: 13px;
-                }
-                #gg-submit-btn {
-                  margin-top: 4px;
-                  padding: 8px 10px;
-                  border-radius: 4px;
-                  border: none;
-                  background: #2c7a7b;
-                  color: #fff;
-                  font-size: 14px;
-                  cursor: pointer;
-                  align-self: flex-start;
-                }
-                #gg-feedback {
-                  margin-top: 8px;
-                  font-size: 13px;
-                }
-                /* No-questions view */
-                #gg-noq-text {
-                  margin-top: 40px;
-                  font-size: 14px;
-                  opacity: 0.85;
-                  text-align: center;
-                }
-                /* Final score view */
-                #gg-final-score {
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  height: 90%;
-                  text-align: center;
-                }
-                #gg-final-score .score-box {
-                  padding: 24px;
-                  background: rgba(17,17,17,0.9);
-                  border-radius: 12px;
-                  border: 1px solid #333;
-                }
-                #gg-final-score .score-number {
-                  font-size: 40px;
-                  font-weight: 700;
-                  margin-bottom: 8px;
-                }
-                #gg-final-score .score-subtext {
-                  font-size: 16px;
-                  opacity: 0.9;
-                }
-              </style>
-            </head>
-            <body>
-              <div id="gg-container">
-                <button id="gg-close-btn" type="button">×</button>
-                <div id="gg-score">Score: 0</div>
-                <h2>Guessing Game</h2>
-                <div id="gg-main-view"></div>
-              </div>
-            </body>
-          </html>
-        `);
+        doc.write(`<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    :root {
+      --bg: #202830;
+      --panel: #1a2128;
+      --panel-soft: #151b22;
+      --border: #2c3742;
+      --accent: #40bcf4;
+      --primary: #00e054;
+      --warning: #ff8000;
+      --text-main: #f7f5ff;
+      --text-muted: #b0bcc8;
+      --shadow-main: 0 18px 40px rgba(0, 0, 0, 0.6);
+    }
+
+    * { box-sizing: border-box; margin:0; padding:0; }
+    html, body { height:100%; overflow:hidden; }
+   body {
+  padding: 16px;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: transparent;
+  color: var(--text-main);
+}
+
+
+    /* Shell */
+   #gg-container {
+  max-width: 800px;
+  margin: 64px auto 32px;
+  position: relative;
+  padding: 18px 22px 20px;
+  border-radius: 24px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-main);
+    height: calc(100% - 128px);
+}
+
+
+    h2 {
+      margin: 0 0 6px;
+      font-size: 20px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    /* Close button and score */
+    #gg-close-btn {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 28px; height: 28px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: #ffffff;
+      font-size: 18px; cursor: pointer;
+      display: inline-flex; align-items:center; justify-content:center; line-height:1; padding:0;
+    }
+    #gg-close-btn:hover { background: #2a3440; }
+
+    #gg-score {
+      position: absolute; top: 16px; right: 52px; font-size: 12px; font-weight:600;
+      padding: 4px 10px; border-radius:999px; background:var(--bg); border:1px solid var(--accent);
+      color:var(--accent); display:none;
+    }
+
+    /* Main scrolling area */
+    #gg-main-view { margin-top:10px; height: calc(100% - 56px); overflow:auto; padding:14px 4px 4px; }
+
+    /* Loading view */
+    #gg-loading-text { margin-bottom:10px; font-size:13px; color:var(--text-muted); }
+    #gg-progress-outer { width:100%; height:8px; border-radius:999px; background:#151b22; overflow:hidden; border:1px solid var(--border); }
+    #gg-progress-inner { height:100%; width:0%; background: linear-gradient(90deg, var(--accent), var(--primary), var(--warning)); transition: width 0.2s ease-out; }
+
+    /* Review box */
+    #gg-review-box { margin-top:10px; padding:14px 16px; border-radius:16px; background:var(--panel); line-height:1.6; font-size:14px; border:1px solid var(--border); position:relative; box-shadow: inset 0 0 25px rgba(0,0,0,0.65); max-height:none; overflow-y:visible; }
+    #gg-review-box::before { content: "Review"; position:absolute; top:8px; right:16px; font-size:10px; text-transform:uppercase; letter-spacing:0.12em; color: rgba(237,242,255,0.55); }
+
+    #gg-review-text { position:relative; padding-left:20px; }
+    #gg-review-text::before { content: "“"; position:absolute; left:0; top:-4px; font-size:26px; color:var(--accent); }
+
+    /* Answer area */
+    #gg-answer-area { margin-top:16px; display:flex; flex-direction:column; gap:8px; padding:12px 14px 14px; border-radius:16px; background:var(--panel); border:1px solid var(--border); }
+
+    label { font-size:11px; text-transform:uppercase; letter-spacing:0.18em; color:var(--text-muted); }
+
+    /* Hidden dummy input */
+    #gg-search-input-placeholder { position:absolute; left:-9999px; top:-9999px; width:1px; height:1px; opacity:0; border:0; }
+
+    /* Search input and select */
+    #gg-answer-area input[type="text"] { padding:7px 10px; border-radius:10px; border:1px solid var(--border); background:var(--panel-soft); color:var(--text-main); font-size:13px; outline:none; }
+    #gg-answer-area input[type="text"]::placeholder { color:#8d99a5; }
+    #gg-answer-area input[type="text"]:focus { border-color:var(--accent); box-shadow: 0 0 0 1px rgba(64,188,244,0.7), 0 0 0 8px rgba(64,188,244,0.18); }
+
+    /* Dropdown */
+    #gg-answer-select { padding:7px 10px; border-radius:10px; border:1px solid var(--border); background:var(--panel-soft); color:var(--text-main); font-size:13px; outline:none; appearance:none; -webkit-appearance:none; -moz-appearance:none; }
+    #gg-answer-select:focus { border-color:var(--accent); box-shadow: 0 0 0 1px rgba(64,188,244,0.7), 0 0 0 8px rgba(64,188,244,0.18); }
+
+    /* Primary button */
+    #gg-submit-btn { margin-top:6px; padding:8px 14px; border-radius:999px; border:none; background:var(--primary); color:#05130a; font-size:13px; font-weight:600; cursor:pointer; align-self:flex-start; text-transform:uppercase; letter-spacing:0.16em; }
+    #gg-submit-btn:hover { background:#00c649; } #gg-submit-btn:active { background:#00ad3f; }
+
+    /* Feedback */
+    #gg-feedback { margin-top:6px; font-size:13px; min-height:18px; color:var(--text-muted); }
+    #gg-feedback.correct { color:var(--primary); } #gg-feedback.incorrect { color:var(--warning); }
+
+    /* No-questions view */
+    #gg-noq-text { margin-top:40px; font-size:14px; opacity:0.85; text-align:center; color:var(--text-muted); }
+
+    /* Final score view */
+    #gg-final-score { display:flex; align-items:center; justify-content:center; height:90%; text-align:center; }
+    #gg-final-score .score-box { padding:26px 32px; background:var(--panel); border-radius:18px; border:1px solid var(--border); box-shadow:var(--shadow-main); }
+    #gg-final-score .score-number { font-size:40px; font-weight:700; margin-bottom:4px; color:var(--primary); }
+    #gg-final-score .score-subtext { font-size:14px; opacity:0.9; color:var(--text-muted); }
+
+    /* Scrollbars */
+    #gg-main-view::-webkit-scrollbar, #gg-review-box::-webkit-scrollbar { width:6px; }
+    #gg-main-view::-webkit-scrollbar-track, #gg-review-box::-webkit-scrollbar-track { background:transparent; }
+    #gg-main-view::-webkit-scrollbar-thumb, #gg-review-box::-webkit-scrollbar-thumb { background:var(--border); border-radius:999px; }
+
+    @media (max-width:640px) {
+      #gg-container { padding:14px 14px 16px; }
+      #gg-main-view { padding-right:2px; }
+      #gg-review-box { font-size:13px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="gg-container">
+    <button id="gg-close-btn" type="button">×</button>
+    <div id="gg-score" style="display: block;">Score: 0</div>
+    <h2>Guessing Game</h2>
+    <div id="gg-main-view">
+      <input id="gg-search-input-placeholder" name="nope" autocomplete="off" type="text" />
+
+      <div id="gg-review-box">
+        <div id="gg-review-text">This is a sample review for Sample Film A. Edit this text to preview the review box UI.</div>
+      </div>
+
+      <div id="gg-answer-area">
+        <label for="gg-search-1764186865885-3lx7c6">Search for the film:</label>
+        <input id="gg-search-1764186865885-3lx7c6" name="gg-search-1764186865885-3lx7c6" type="text" placeholder="Type to filter films..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+        <select id="gg-answer-select">
+          <option value="sample-film-a">Sample Film A</option>
+          <option value="sample-film-b">Sample Film B</option>
+          <option value="sample-film-c">Sample Film C</option>
+        </select>
+        <button id="gg-submit-btn">Confirm guess</button>
+        <div id="gg-feedback"></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`);
         doc.close();
 
         GG.ui.attachBaseGameHandlers();
@@ -330,6 +336,35 @@
         if (closeBtn) {
             closeBtn.addEventListener("click", GG.game.handleGameClose);
         }
+    };
+
+    // Debug helper: open the full quiz UI immediately with sample data so UI elements can be inspected/edited
+    GG.ui.openDebugUI = function openDebugUI() {
+        GG.logger && GG.logger.log && GG.logger.log("GG: opening debug UI");
+        GG.ui.ensureGameIframe();
+
+        // Populate filmOptions if empty with sample entries
+        if (!state.filmOptions || !state.filmOptions.length) {
+            state.filmOptions = [
+                { filmSlug: 'sample-film-a', filmUrl: '/film/sample-film-a', title: 'Sample Film A' },
+                { filmSlug: 'sample-film-b', filmUrl: '/film/sample-film-b', title: 'Sample Film B' },
+                { filmSlug: 'sample-film-c', filmUrl: '/film/sample-film-c', title: 'Sample Film C' }
+            ];
+        }
+
+        // Populate a simple question queue so renderCurrentQuestion shows content
+        if (!state.questionQueue || !state.questionQueue.length) {
+            state.questionQueue = [
+                { filmSlug: state.filmOptions[0].filmSlug, filmUrl: state.filmOptions[0].filmUrl, reviewText: 'This is a sample review for Sample Film A. Edit this text to preview the review box UI.' },
+                { filmSlug: state.filmOptions[1].filmSlug, filmUrl: state.filmOptions[1].filmUrl, reviewText: 'Second sample review for Sample Film B.' }
+            ];
+        }
+
+        state.currentQuestionIndex = 0;
+        state.score = 0;
+
+        // Initialize the quiz view (wires handlers and renders the first question)
+        GG.ui.initQuiz();
     };
 
     // View renderers
