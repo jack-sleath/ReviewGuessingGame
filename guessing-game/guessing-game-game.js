@@ -5,8 +5,14 @@
 
     GG.game = GG.game || {};
 
-    GG.game.start = function startGame(rating) {
-        GG.logger.log("Starting Guessing Game with rating:", rating || "any");
+    GG.game.start = function startGame(rating, options) {
+        const englishOnly = !!(options && options.englishOnly);
+        GG.logger.log(
+            "Starting Guessing Game with rating:",
+            rating || "any",
+            "englishOnly:",
+            englishOnly
+        );
 
         const filmUrls = GG.scraper.collectFilmUrls();
         GG.logger.log("Collected film URLs:", filmUrls);
@@ -19,6 +25,7 @@
         state.filmQueue = filmUrls;
         state.currentIndex = 0;
         state.currentRating = rating || "";
+        state.currentEnglishOnly = englishOnly;
         state.totalFilms = filmUrls.length;
 
         state.questionQueue = [];

@@ -51,6 +51,7 @@
         filmQueue: [],
         currentIndex: 0,
         currentRating: "",
+        currentEnglishOnly: false,
         hiddenIframe: null,
         questionQueue: [], // { filmUrl, filmSlug, reviewText }
         score: 0,

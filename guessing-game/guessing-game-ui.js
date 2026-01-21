@@ -67,6 +67,24 @@
             select.appendChild(opt);
         });
 
+        const englishRow = document.createElement("label");
+        englishRow.style.display = "flex";
+        englishRow.style.alignItems = "center";
+        englishRow.style.gap = "6px";
+        englishRow.style.fontSize = "12px";
+        englishRow.style.cursor = "pointer";
+
+        const englishCheckbox = document.createElement("input");
+        englishCheckbox.type = "checkbox";
+        englishCheckbox.id = "gg-english-only";
+        englishCheckbox.style.margin = "0";
+
+        const englishText = document.createElement("span");
+        englishText.textContent = "English only (no accents)";
+
+        englishRow.appendChild(englishCheckbox);
+        englishRow.appendChild(englishText);
+
         const buttonsRow = document.createElement("div");
         buttonsRow.style.display = "flex";
         buttonsRow.style.gap = "6px";
@@ -83,7 +101,9 @@
         startBtn.style.color = "#fff";
         startBtn.style.fontSize = "13px";
         startBtn.addEventListener("click", () => {
-            GG.game.start(select.value);
+            GG.game.start(select.value, {
+                englishOnly: englishCheckbox.checked
+            });
         });
 
         const closeBtn = document.createElement("button");
@@ -131,6 +151,7 @@
         panel.appendChild(title);
         panel.appendChild(label);
         panel.appendChild(select);
+        panel.appendChild(englishRow);
         panel.appendChild(buttonsRow);
 
         document.body.appendChild(panel);

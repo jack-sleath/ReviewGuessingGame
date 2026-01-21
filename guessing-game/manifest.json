@@ -1,7 +1,7 @@
 ﻿{
     "manifest_version":  3,
     "name":  "LetterBoxd Review Guesser",
-    "version":  "25.11.26.2056",
+    "version":  "26.01.21.0015",
     "description":  "Guess the movie from a Letterboxd review — read a review snippet and pick the film. Fast, single-player quiz.",
     "icons":  {
                   "16":  "icons/icon16.png",

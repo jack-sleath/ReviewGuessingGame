@@ -76,7 +76,8 @@
 
         const slug = match[1];
 
-        fetchReviewForSlug(filmUrl, slug, false)
+        const randomPage = Math.floor(Math.random() * 100) + 1;
+        fetchReviewForSlug(filmUrl, slug, randomPage)
             .then(question => {
                 if (question) {
                     state.questionQueue.push(question);
@@ -127,16 +128,19 @@
         }
     }
 
+    const ACCENTED_CHARS_REGEX = /[\u00C0-\u024F\u1E00-\u1EFF]/;
+
+    function isLikelyEnglishReview(text) {
+        return !ACCENTED_CHARS_REGEX.test(text);
+    }
+
     /**
-     * Fetch a review page (random page first, then fallback to page 1 if needed).
+     * Fetch a review page, halving the page number on each miss until page 1.
      * Returns a Promise that resolves to:
      *  - { filmUrl, filmSlug, reviewText } if a review is found
      *  - null otherwise
      */
-    function fetchReviewForSlug(filmUrl, slug, triedFirstPage) {
-        const randomPage = Math.floor(Math.random() * 100) + 1;
-        const pageToUse = triedFirstPage ? 1 : randomPage;
-
+    function fetchReviewForSlug(filmUrl, slug, pageToUse) {
         let reviewUrl;
         if (state.currentRating) {
             reviewUrl = `https://letterboxd.com/film/${slug}/reviews/rated/${state.currentRating}/page/${pageToUse}/`;
@@ -170,18 +174,27 @@
                     filmUrl
                 );
 
-                if (!paragraphs.length) {
-                    // No reviews on this page; if we haven't tried page 1 yet, do that once.
-                    if (!triedFirstPage) {
-                        GG.logger.log("No reviews; trying page 1 for this film instead");
-                        return fetchReviewForSlug(filmUrl, slug, true);
-                    }
-                    // Already tried page 1; give up on this film.
-                    return null;
+                let usableParagraphs = Array.from(paragraphs);
+                if (state.currentEnglishOnly) {
+                    usableParagraphs = usableParagraphs.filter(p =>
+                        isLikelyEnglishReview(p.innerText || "")
+                    );
                 }
 
-                const randomIndex = Math.floor(Math.random() * paragraphs.length);
-                const randomParagraph = paragraphs[randomIndex];
+                if (!usableParagraphs.length) {
+                    if (pageToUse <= 1) {
+                        return null;
+                    }
+
+                    const nextPage = Math.max(1, Math.floor(pageToUse / 2));
+                    GG.logger.log(
+                        `No usable reviews; halving page from ${pageToUse} to ${nextPage}`
+                    );
+                    return fetchReviewForSlug(filmUrl, slug, nextPage);
+                }
+
+                const randomIndex = Math.floor(Math.random() * usableParagraphs.length);
+                const randomParagraph = usableParagraphs[randomIndex];
                 const reviewText = randomParagraph.innerText.trim();
 
                 const slugMatch = filmUrl.match(/\/film\/([^/]+)\//);
@@ -195,12 +208,14 @@
             })
             .catch(err => {
                 GG.logger.error("Error during fetch/parse for film:", filmUrl, err);
-                // If random page failed and we haven't yet tried page 1, we can attempt that too
-                if (!triedFirstPage) {
-                    GG.logger.log("Retrying film on page 1 after error");
-                    return fetchReviewForSlug(filmUrl, slug, true);
+                if (pageToUse <= 1) {
+                    return null;
                 }
-                return null;
+                const nextPage = Math.max(1, Math.floor(pageToUse / 2));
+                GG.logger.log(
+                    `Retrying film after error; halving page from ${pageToUse} to ${nextPage}`
+                );
+                return fetchReviewForSlug(filmUrl, slug, nextPage);
             });
     }
 
