@@ -15,37 +15,45 @@
         panel.style.position = "fixed";
         panel.style.bottom = "20px";
         panel.style.right = "20px";
-        panel.style.padding = "10px 12px";
-        panel.style.background = "rgba(0, 0, 0, 0.85)";
-        panel.style.color = "#fff";
-        panel.style.borderRadius = "8px";
+        panel.style.padding = "12px 14px";
+        panel.style.background = "#202830";
+        panel.style.color = "#f7f5ff";
+        panel.style.borderRadius = "14px";
         panel.style.fontSize = "13px";
         panel.style.fontFamily = "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
         panel.style.zIndex = "999999";
-        panel.style.boxShadow = "0 4px 12px rgba(0,0,0,0.4)";
+        panel.style.boxShadow = "0 18px 40px rgba(0, 0, 0, 0.6)";
         panel.style.display = "flex";
         panel.style.flexDirection = "column";
-        panel.style.gap = "6px";
-        panel.style.maxWidth = "220px";
+        panel.style.gap = "8px";
+        panel.style.maxWidth = "240px";
+        panel.style.border = "1px solid #2c3742";
 
         const title = document.createElement("div");
         title.textContent = "Guessing Game";
-        title.style.fontWeight = "600";
-        title.style.marginBottom = "4px";
+        title.style.fontWeight = "700";
+        title.style.marginBottom = "2px";
+        title.style.textTransform = "uppercase";
+        title.style.letterSpacing = "0.12em";
+        title.style.fontSize = "12px";
+        title.style.color = "#40bcf4";
 
         const label = document.createElement("label");
         label.textContent = "Review rating:";
         label.setAttribute("for", "gg-rating-select");
-        label.style.fontSize = "12px";
+        label.style.fontSize = "11px";
+        label.style.textTransform = "uppercase";
+        label.style.letterSpacing = "0.18em";
+        label.style.color = "#b0bcc8";
 
         const select = document.createElement("select");
         select.id = "gg-rating-select";
         select.style.width = "100%";
-        select.style.padding = "4px 6px";
-        select.style.borderRadius = "4px";
-        select.style.border = "1px solid #444";
-        select.style.background = "#111";
-        select.style.color = "#fff";
+        select.style.padding = "6px 8px";
+        select.style.borderRadius = "10px";
+        select.style.border = "1px solid #2c3742";
+        select.style.background = "#151b22";
+        select.style.color = "#f7f5ff";
 
         const ratings = [
             { value: "0.5", label: "0.5 stars" },
@@ -71,8 +79,11 @@
         englishRow.style.display = "flex";
         englishRow.style.alignItems = "center";
         englishRow.style.gap = "6px";
-        englishRow.style.fontSize = "12px";
+        englishRow.style.fontSize = "11px";
         englishRow.style.cursor = "pointer";
+        englishRow.style.textTransform = "uppercase";
+        englishRow.style.letterSpacing = "0.18em";
+        englishRow.style.color = "#b0bcc8";
 
         const englishCheckbox = document.createElement("input");
         englishCheckbox.type = "checkbox";
@@ -93,13 +104,16 @@
         const startBtn = document.createElement("button");
         startBtn.textContent = "Start";
         startBtn.style.flex = "1";
-        startBtn.style.padding = "4px 8px";
+        startBtn.style.padding = "6px 10px";
         startBtn.style.border = "none";
-        startBtn.style.borderRadius = "4px";
+        startBtn.style.borderRadius = "999px";
         startBtn.style.cursor = "pointer";
-        startBtn.style.background = "#2c7a7b";
-        startBtn.style.color = "#fff";
-        startBtn.style.fontSize = "13px";
+        startBtn.style.background = "#00e054";
+        startBtn.style.color = "#05130a";
+        startBtn.style.fontSize = "12px";
+        startBtn.style.fontWeight = "700";
+        startBtn.style.textTransform = "uppercase";
+        startBtn.style.letterSpacing = "0.16em";
         startBtn.addEventListener("click", () => {
             GG.game.start(select.value, {
                 englishOnly: englishCheckbox.checked
@@ -110,11 +124,11 @@
         closeBtn.textContent = "×";
         closeBtn.style.width = "28px";
         closeBtn.style.padding = "4px";
-        closeBtn.style.border = "none";
-        closeBtn.style.borderRadius = "4px";
+        closeBtn.style.border = "1px solid #2c3742";
+        closeBtn.style.borderRadius = "999px";
         closeBtn.style.cursor = "pointer";
-        closeBtn.style.background = "#444";
-        closeBtn.style.color = "#fff";
+        closeBtn.style.background = "#202830";
+        closeBtn.style.color = "#f7f5ff";
         closeBtn.style.fontSize = "16px";
         closeBtn.style.lineHeight = "1";
         closeBtn.addEventListener("click", () => {
@@ -129,13 +143,16 @@
                 const debugBtn = document.createElement("button");
                 debugBtn.textContent = "Debug UI";
                 debugBtn.style.flex = "1";
-                debugBtn.style.padding = "4px 8px";
+                debugBtn.style.padding = "6px 10px";
                 debugBtn.style.border = "none";
-                debugBtn.style.borderRadius = "4px";
+                debugBtn.style.borderRadius = "999px";
                 debugBtn.style.cursor = "pointer";
-                debugBtn.style.background = "#6b46c1";
-                debugBtn.style.color = "#fff";
-                debugBtn.style.fontSize = "13px";
+                debugBtn.style.background = "#40bcf4";
+                debugBtn.style.color = "#0b1a24";
+                debugBtn.style.fontSize = "12px";
+                debugBtn.style.fontWeight = "700";
+                debugBtn.style.textTransform = "uppercase";
+                debugBtn.style.letterSpacing = "0.16em";
                 debugBtn.addEventListener("click", () => {
                     GG.ui.openDebugUI();
                 });
