@@ -1,0 +1,208 @@
+<html lang="en"><head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { background: #202830; }
+  body {
+    width: 1200px;
+    height: 627px;
+    background-color: #202830;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  /* Grid texture */
+  .grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(247,245,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(247,245,255,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  /* Warm glow */
+  .glow {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 38% 50%, rgba(255,128,0,0.18) 0%, transparent 58%);
+  }
+
+  /* Right side: fake review card */
+  .review-area {
+    position: absolute;
+    right: 55px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    width: 260px;
+  }
+
+  .review-card {
+    background: rgba(247,245,255,0.05);
+    border: 1px solid #2c3742;
+    border-radius: 8px;
+    padding: 16px 18px;
+    margin-bottom: 12px;
+  }
+
+  .review-stars {
+    color: #ff8000;
+    font-size: 13px;
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+  }
+
+  .review-text {
+    font-size: 12px;
+    color: rgba(176,188,200,0.6);
+    line-height: 1.5;
+    font-style: italic;
+  }
+
+  .review-blur {
+    filter: blur(3px);
+    opacity: 0.5;
+  }
+
+  .question-overlay {
+    position: absolute;
+    right: 55px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 260px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    pointer-events: none;
+  }
+
+  .big-q {
+    font-size: 180px;
+    font-weight: 700;
+    color: rgba(255, 128, 0, 0.12);
+    line-height: 1;
+    position: absolute;
+    right: 30px;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  /* Main content */
+  .content {
+    position: relative;
+    z-index: 10;
+    padding: 0 80px;
+  }
+
+  .eyebrow {
+    font-size: 12px;
+    color: #b0bcc8;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 22px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+
+  .dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #00e054;
+    flex-shrink: 0;
+  }
+
+  h1 {
+    font-size: 52px;
+    font-weight: 700;
+    color: #f7f5ff;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    max-width: 520px;
+  }
+
+  h1 .highlight {
+    color: #00e054;
+  }
+
+  .tagline {
+    font-size: 18px;
+    color: #7a8590;
+    margin-top: 18px;
+    font-weight: 400;
+    line-height: 1.55;
+    max-width: 480px;
+  }
+
+  .tags {
+    margin-top: 28px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .tag {
+    font-size: 12px;
+    color: #b0bcc8;
+    border: 1px solid rgba(176,188,200,0.28);
+    border-radius: 999px;
+    padding: 4px 14px;
+    background: rgba(247,245,255,0.04);
+  }
+
+  .url-label {
+    position: absolute;
+    bottom: 30px;
+    left: 80px;
+    font-size: 11px;
+    color: rgba(176,188,200,0.35);
+    letter-spacing: 0.07em;
+    z-index: 10;
+  }
+</style>
+</head>
+<body>
+  <div class="grid"></div>
+  <div class="glow"></div>
+
+  <!-- Ghost question mark behind cards -->
+  <div class="big-q">?</div>
+
+  <!-- Faint review cards on right -->
+  <div class="review-area">
+    <div class="review-card">
+      <div class="review-stars">★★★★½</div>
+      <div class="review-text review-blur">"A haunting meditation on memory and loss. The cinematography is breathtaking, every frame feels deliberate..."</div>
+    </div>
+    <div class="review-card">
+      <div class="review-stars">★★★</div>
+      <div class="review-text review-blur">"Funny in places, but never quite commits to its premise. The lead performance carries it through..."</div>
+    </div>
+    <div class="review-card" style="opacity:0.5">
+      <div class="review-stars">★★★★★</div>
+      <div class="review-text review-blur">"One of the greatest films ever made. I cannot stop thinking about the final scene..."</div>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="eyebrow"><span class="dot"></span>Chrome Extension</div>
+    <h1>Letterboxd<br>Review <span class="highlight">Guesser</span></h1>
+    <p class="tagline">Read the review.<br>Guess the film.</p>
+    <div class="tags">
+      <span class="tag">#javascript</span>
+      <span class="tag">#chrome-extension</span>
+      <span class="tag">#manifest-v3</span>
+      <span class="tag">#letterboxd</span>
+    </div>
+  </div>
+  <div class="url-label">chrome web store</div>
+</body></html>
