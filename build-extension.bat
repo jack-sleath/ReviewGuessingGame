@@ -10,15 +10,16 @@ rem  - update manifest.json
 rem  - zip the folder to ../dist/guessing-game-<version>.zip
 powershell -NoProfile -Command ^
   "$now = Get-Date;" ^
-  "$version = '{0:yy}.{0:MM}.{0:dd}.{0:HHmm}' -f $now;" ^
-  "Write-Host 'Version:' $version;" ^
+  "$padded = '{0:yy}.{0:MM}.{0:dd}.{0:HHmm}' -f $now;" ^
+  "$version = ($padded -split '\.' | ForEach-Object { [int]$_ }) -join '.';" ^
+  "Write-Host 'Version:' $version '(zip:' $padded ')';" ^
   "$manifestPath = 'manifest.json';" ^
   "$manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json;" ^
   "$manifest.version = $version;" ^
   "$manifest | ConvertTo-Json -Depth 10 | Set-Content $manifestPath -Encoding UTF8;" ^
   "$zipDir = Join-Path (Split-Path -Parent $PWD) 'dist';" ^
   "New-Item -ItemType Directory -Force -Path $zipDir | Out-Null;" ^
-  "$zipPath = Join-Path $zipDir ('guessing-game-' + $version + '.zip');" ^
+  "$zipPath = Join-Path $zipDir ('guessing-game-' + $padded + '.zip');" ^
   "if (Test-Path $zipPath) { Remove-Item $zipPath };" ^
   "Compress-Archive -Path * -DestinationPath $zipPath;" ^
   "Write-Host 'Created zip:' $zipPath"
