@@ -177,7 +177,7 @@
                 let usableParagraphs = Array.from(paragraphs);
                 if (state.currentEnglishOnly) {
                     usableParagraphs = usableParagraphs.filter(p =>
-                        isLikelyEnglishReview(p.innerText || "")
+                        isLikelyEnglishReview(p.textContent || "")
                     );
                 }
 
@@ -195,7 +195,7 @@
 
                 const randomIndex = Math.floor(Math.random() * usableParagraphs.length);
                 const randomParagraph = usableParagraphs[randomIndex];
-                const reviewText = randomParagraph.innerText.trim();
+                const reviewText = randomParagraph.textContent.trim();
 
                 const slugMatch = filmUrl.match(/\/film\/([^/]+)\//);
                 const filmSlug = slugMatch ? slugMatch[1] : null;
@@ -217,6 +217,27 @@
                 );
                 return fetchReviewForSlug(filmUrl, slug, nextPage);
             });
+    }
+
+    const STATUS_SUFFIX_REGEX =
+        /(You watched this film|You(?:'ve)? rewatched this film|Watch this film\??|Rewatch this film\??)\s*$/i;
+
+    function extractFilmTitle(anchor, slug, href) {
+        const img = anchor.querySelector("img[alt]");
+        if (img) {
+            const alt = (img.getAttribute("alt") || "").trim();
+            if (alt) return alt;
+        }
+
+        const frameTitle = anchor.querySelector(".frame-title");
+        if (frameTitle) {
+            const ft = (frameTitle.textContent || "").trim();
+            if (ft) return ft;
+        }
+
+        const raw = (anchor.textContent || "").trim();
+        const stripped = raw.replace(STATUS_SUFFIX_REGEX, "").trim();
+        return stripped || slug || href;
     }
 
     /**
@@ -241,7 +262,7 @@
 
             const match = href.match(/\/film\/([^/]+)\//);
             const slug = match ? match[1] : null;
-            const title = (a.textContent || "").trim() || slug || href;
+            const title = extractFilmTitle(a, slug, href);
 
             state.filmOptions.push({
                 filmUrl: fullUrl,

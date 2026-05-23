@@ -2,7 +2,7 @@
     const MOVIE_SELECTOR =
         'a[href^="/film/"]';
     const REVIEW_SELECTOR =
-        '#content > div > div > section > div.viewing-list.-marginblockstart > div > article > div > div.js-review > div.body-text.-prose.-reset.js-review-body.js-collapsible-text > p';
+        '.viewing-list .js-review .js-review-body p';
 
     window.GG = window.GG || {};
 
