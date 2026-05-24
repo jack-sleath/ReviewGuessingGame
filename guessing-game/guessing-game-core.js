@@ -51,7 +51,7 @@
         filmQueue: [],
         currentIndex: 0,
         currentRating: "",
-        currentEnglishOnly: false,
+        currentLanguages: null, // Set<string> of language codes, or null/empty for no filter
         hiddenIframe: null,
         questionQueue: [], // { filmUrl, filmSlug, reviewText }
         score: 0,
@@ -60,7 +60,13 @@
         gameIframe: null,
         totalFilms: 0,
         filmOptions: [], // { filmUrl, filmSlug, title }
-        currentQuestionIndex: 0
+        currentQuestionIndex: 0,
+
+        // streaming flags: quiz UI is shown as soon as the first question
+        // arrives, while scraping continues for the rest in the background.
+        quizStarted: false,
+        scrapingComplete: false,
+        waitingForNext: false
     };
 
     // Allow runtime control of debug mode

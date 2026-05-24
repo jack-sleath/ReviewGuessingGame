@@ -6,12 +6,14 @@
     GG.game = GG.game || {};
 
     GG.game.start = function startGame(rating, options) {
-        const englishOnly = !!(options && options.englishOnly);
+        const langs = options && options.languages instanceof Set
+            ? options.languages
+            : null;
         GG.logger.log(
             "Starting Guessing Game with rating:",
             rating || "any",
-            "englishOnly:",
-            englishOnly
+            "languages:",
+            langs ? Array.from(langs) : "any"
         );
 
         const filmUrls = GG.scraper.collectFilmUrls();
@@ -23,14 +25,21 @@
         }
 
         state.filmQueue = filmUrls;
+        // Shuffle so fetch order (and therefore question arrival order in the
+        // streaming quiz) varies run-to-run instead of always starting with
+        // whichever film appears first in the list's DOM.
+        GG.utils.shuffleArray(state.filmQueue);
         state.currentIndex = 0;
         state.currentRating = rating || "";
-        state.currentEnglishOnly = englishOnly;
+        state.currentLanguages = langs;
         state.totalFilms = filmUrls.length;
 
         state.questionQueue = [];
         state.score = 0;
         state.currentQuestionIndex = 0;
+        state.quizStarted = false;
+        state.scrapingComplete = false;
+        state.waitingForNext = false;
 
         GG.ui.ensureGameIframe();
         GG.ui.updateLoading();

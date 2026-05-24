@@ -76,12 +76,27 @@
 
         const slug = match[1];
 
-        const randomPage = Math.floor(Math.random() * 100) + 1;
+        // Pick from a small range — most films have plenty of reviews on early
+        // pages, and halving cascades from page 100 burn 7 sequential fetches
+        // in the worst case. Range 1-10 caps halving at ~4 fetches.
+        const randomPage = Math.floor(Math.random() * 10) + 1;
         fetchReviewForSlug(filmUrl, slug, randomPage)
             .then(question => {
                 if (question) {
                     state.questionQueue.push(question);
                     GG.logger.log("Added question to queue:", question);
+
+                    // Stream: start the quiz on the first question that lands,
+                    // and wake the renderer if the player has caught up and
+                    // is staring at a "loading next question" placeholder.
+                    if (!state.quizStarted) {
+                        state.quizStarted = true;
+                        state.currentQuestionIndex = 0;
+                        GG.ui.initQuiz();
+                    } else if (state.waitingForNext) {
+                        state.waitingForNext = false;
+                        GG.ui.renderCurrentQuestion();
+                    }
                 } else {
                     GG.logger.log("No usable review found for film:", filmUrl);
                 }
@@ -118,21 +133,75 @@
         GG.logger.log("Question queue built:", state.questionQueue);
 
         GG.scraper.destroyHiddenIframe(); // no-op but keeps logs consistent
+        state.scrapingComplete = true;
 
         if (!state.questionQueue.length) {
+            // Nothing was ever found — quiz never started, show empty state.
             GG.ui.showNoQuestions();
-        } else {
-            GG.utils.shuffleArray(state.questionQueue);
-            state.currentQuestionIndex = 0;
-            GG.ui.initQuiz();
+        } else if (state.waitingForNext) {
+            // Player caught up while scraping ran on. Nothing more is coming
+            // so jump straight to the final score.
+            state.waitingForNext = false;
+            GG.ui.showFinalScore();
         }
+        // Otherwise the quiz is mid-flight and will surface the final score
+        // naturally when the player exhausts the queue.
     }
 
-    const ACCENTED_CHARS_REGEX = /[\u00C0-\u024F\u1E00-\u1EFF]/;
-
-    function isLikelyEnglishReview(text) {
-        return !ACCENTED_CHARS_REGEX.test(text);
+    // Lowercase and strip diacritics so "n\u00E3o" matches "nao", "tr\u00E8s" matches "tres".
+    // Many reviewers omit accents; matching becomes accent-agnostic for both
+    // the stopword sets (normalized at load time) and incoming tokens.
+    function normalize(s) {
+        return (s || '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
     }
+
+    // Common function words + language-distinctive review vocabulary, per language.
+    // Reviews are scored against each set; the highest-scoring language wins.
+    // Tokens are extracted as whole words (runs of Unicode letters) so partial
+    // matches inside other words can't happen \u2014 "a" never matches inside "facade".
+    // Avoid cross-language cognates (e.g. "film", "scene") \u2014 they add noise
+    // without signal. Sentiment/verb forms boost detection on terse reviews
+    // that lack function words ("best ever", "loved it").
+    const STOPWORD_SOURCES = {
+        en: ['the','a','an','and','or','but','of','in','on','at','to','for','with','is','was','are','were','be','been','this','that','it','its','i','you','he','she','we','they','my','your','his','her','our','their','not','no','so','do','does','did','have','has','had','will','would','can','could','just','very','really','what','when','where','who','why','how','all','some','like','about','from','by','as','if','than','then','good','bad','great','awful','best','worst','love','loved','hate','hated','watch','watched','watching','ever','never','too','also','only','shit','fuck','fucking','damn','hell','ass','bitch','crap','trash'],
+        es: ['el','la','los','las','un','una','unos','unas','y','o','pero','de','en','con','por','para','es','son','era','ser','estar','este','esta','esto','ese','esa','eso','que','qu\u00E9','no','me','te','se','lo','le','mi','tu','su','muy','m\u00E1s','menos','todo','tambi\u00E9n','porque','cuando','donde','como','hay','ha','han','bueno','buena','malo','mala','mejor','peor','encanta','odio','vi','vista','genial','incre\u00EDble','horrible','siempre','nunca','aunque','mierda','joder','puta','co\u00F1o','carajo','pendejo'],
+        pt: ['o','os','as','um','uma','uns','umas','e','ou','mas','de','em','no','na','nos','nas','para','com','por','\u00E9','s\u00E3o','foi','ser','estar','este','esta','isto','esse','essa','isso','que','n\u00E3o','me','te','se','lhe','meu','teu','seu','muito','mais','menos','tudo','tamb\u00E9m','porque','quando','onde','como','h\u00E1','bom','boa','mau','melhor','pior','adoro','odeio','vi','visto','\u00F3timo','p\u00E9ssimo','sempre','nunca','ainda','merda','porra','caralho','foda','bosta'],
+        fr: ['le','la','les','un','une','des','et','ou','mais','de','du','en','au','aux','avec','pour','par','est','sont','\u00E9tait','\u00EAtre','ce','cet','cette','ces','qui','que','quoi','ne','pas','plus','moins','je','tu','il','elle','nous','vous','ils','elles','me','te','se','mon','ton','son','notre','votre','leur','tr\u00E8s','aussi','parce','quand','o\u00F9','comme','bon','bonne','mauvais','meilleur','pire','adore','d\u00E9teste','aim\u00E9','vu','g\u00E9nial','jamais','toujours','merde','putain','con','salaud','salope'],
+        de: ['der','die','das','den','dem','des','ein','eine','einen','einem','einer','und','oder','aber','von','im','an','am','auf','mit','f\u00FCr','ist','sind','war','sein','ich','du','er','sie','es','wir','ihr','sich','mein','dein','unser','nicht','nein','ja','sehr','mehr','auch','weil','wenn','wo','wie','gut','schlecht','toll','beste','schlimmste','liebe','hasse','gesehen','immer','nie','schon','aber','noch','schei\u00DFe','scheisse','verdammt','arsch','mist'],
+        it: ['il','lo','gli','le','un','uno','una','e','o','ma','di','da','con','per','\u00E8','sono','era','essere','questo','questa','questi','queste','quello','quella','quelli','quelle','che','non','s\u00EC','mi','ti','si','mio','tuo','suo','nostro','vostro','loro','molto','pi\u00F9','meno','anche','perch\u00E9','quando','dove','come','buono','cattivo','ottimo','brutto','migliore','peggiore','adoro','odio','visto','bellissimo','mai','sempre','ancora','cazzo','stronzo','vaffanculo','porca']
+    };
+
+    const STOPWORDS = Object.fromEntries(
+        Object.entries(STOPWORD_SOURCES).map(([lang, words]) =>
+            [lang, new Set(words.map(normalize))]
+        )
+    );
+
+    const MIN_WORDS_FOR_LANG_DETECT = 5;
+
+    // Returns a language code ('en'/'es'/...) or null if the review is too
+    // short to classify reliably or no language scored above zero.
+    function detectLanguage(text) {
+        const tokens = (text || '').match(/\p{L}+/gu) || [];
+        if (tokens.length < MIN_WORDS_FOR_LANG_DETECT) return null;
+
+        const normalized = tokens.map(normalize);
+
+        let bestLang = null;
+        let bestScore = 0;
+        for (const [lang, set] of Object.entries(STOPWORDS)) {
+            let score = 0;
+            for (const tok of normalized) if (set.has(tok)) score++;
+            if (score > bestScore) {
+                bestScore = score;
+                bestLang = lang;
+            }
+        }
+        return bestLang;
+    }
+
+    GG.scraper.detectLanguage = detectLanguage;
+    GG.scraper.SUPPORTED_LANGUAGES = Object.keys(STOPWORDS);
 
     /**
      * Fetch a review page, halving the page number on each miss until page 1.
@@ -175,10 +244,12 @@
                 );
 
                 let usableParagraphs = Array.from(paragraphs);
-                if (state.currentEnglishOnly) {
-                    usableParagraphs = usableParagraphs.filter(p =>
-                        isLikelyEnglishReview(p.textContent || "")
-                    );
+                const allowed = state.currentLanguages;
+                if (allowed && allowed.size) {
+                    usableParagraphs = usableParagraphs.filter(p => {
+                        const lang = detectLanguage(p.textContent || "");
+                        return lang && allowed.has(lang);
+                    });
                 }
 
                 if (!usableParagraphs.length) {

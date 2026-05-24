@@ -75,26 +75,152 @@
             select.appendChild(opt);
         });
 
-        const englishRow = document.createElement("label");
-        englishRow.style.display = "flex";
-        englishRow.style.alignItems = "center";
-        englishRow.style.gap = "6px";
-        englishRow.style.fontSize = "11px";
-        englishRow.style.cursor = "pointer";
-        englishRow.style.textTransform = "uppercase";
-        englishRow.style.letterSpacing = "0.18em";
-        englishRow.style.color = "#b0bcc8";
+        const LANGUAGES = [
+            { code: 'en', label: 'English' },
+            { code: 'es', label: 'Spanish' },
+            { code: 'pt', label: 'Portuguese' },
+            { code: 'fr', label: 'French' },
+            { code: 'de', label: 'German' },
+            { code: 'it', label: 'Italian' }
+        ];
+        const LANG_STORAGE_KEY = 'gg_languages';
+        const ALL_CODES = LANGUAGES.map(l => l.code);
 
-        const englishCheckbox = document.createElement("input");
-        englishCheckbox.type = "checkbox";
-        englishCheckbox.id = "gg-english-only";
-        englishCheckbox.style.margin = "0";
+        function loadStoredLangs() {
+            try {
+                const raw = localStorage.getItem(LANG_STORAGE_KEY);
+                if (raw == null) return new Set(ALL_CODES); // first run: all on
+                const codes = raw.split(',').map(s => s.trim()).filter(c => ALL_CODES.includes(c));
+                return new Set(codes); // empty set is honored
+            } catch (e) {
+                return new Set(ALL_CODES);
+            }
+        }
+        function saveStoredLangs(set) {
+            try {
+                localStorage.setItem(LANG_STORAGE_KEY, Array.from(set).join(','));
+            } catch (e) {
+                // ignore (private browsing, storage quota, etc.)
+            }
+        }
 
-        const englishText = document.createElement("span");
-        englishText.textContent = "English only (no accents)";
+        const selectedLangs = loadStoredLangs();
 
-        englishRow.appendChild(englishCheckbox);
-        englishRow.appendChild(englishText);
+        const langLabel = document.createElement("label");
+        langLabel.textContent = "Languages:";
+        langLabel.style.fontSize = "11px";
+        langLabel.style.textTransform = "uppercase";
+        langLabel.style.letterSpacing = "0.18em";
+        langLabel.style.color = "#b0bcc8";
+
+        const langWrap = document.createElement("div");
+        langWrap.style.position = "relative";
+
+        const langTrigger = document.createElement("button");
+        langTrigger.type = "button";
+        langTrigger.style.width = "100%";
+        langTrigger.style.padding = "6px 8px";
+        langTrigger.style.borderRadius = "10px";
+        langTrigger.style.border = "1px solid #2c3742";
+        langTrigger.style.background = "#151b22";
+        langTrigger.style.color = "#f7f5ff";
+        langTrigger.style.fontSize = "13px";
+        langTrigger.style.cursor = "pointer";
+        langTrigger.style.display = "flex";
+        langTrigger.style.alignItems = "center";
+        langTrigger.style.justifyContent = "space-between";
+        langTrigger.style.fontFamily = "inherit";
+        langTrigger.style.textAlign = "left";
+
+        const langTriggerLabel = document.createElement("span");
+        const langTriggerCaret = document.createElement("span");
+        langTriggerCaret.textContent = "▾";
+        langTriggerCaret.style.color = "#b0bcc8";
+        langTriggerCaret.style.fontSize = "10px";
+        langTriggerCaret.style.marginLeft = "8px";
+        langTrigger.appendChild(langTriggerLabel);
+        langTrigger.appendChild(langTriggerCaret);
+
+        function updateLangTriggerLabel() {
+            if (selectedLangs.size === LANGUAGES.length) {
+                langTriggerLabel.textContent = "All";
+            } else if (selectedLangs.size === 0) {
+                langTriggerLabel.textContent = "None";
+            } else if (selectedLangs.size <= 3) {
+                langTriggerLabel.textContent = LANGUAGES
+                    .filter(l => selectedLangs.has(l.code))
+                    .map(l => l.label)
+                    .join(", ");
+            } else {
+                langTriggerLabel.textContent = selectedLangs.size + " selected";
+            }
+        }
+
+        const langMenu = document.createElement("div");
+        langMenu.style.position = "absolute";
+        langMenu.style.bottom = "calc(100% + 4px)";
+        langMenu.style.left = "0";
+        langMenu.style.right = "0";
+        langMenu.style.background = "#151b22";
+        langMenu.style.border = "1px solid #2c3742";
+        langMenu.style.borderRadius = "10px";
+        langMenu.style.padding = "6px";
+        langMenu.style.zIndex = "1";
+        langMenu.style.boxShadow = "0 10px 24px rgba(0, 0, 0, 0.5)";
+        langMenu.style.display = "none";
+
+        LANGUAGES.forEach(lang => {
+            const item = document.createElement("label");
+            item.style.display = "flex";
+            item.style.alignItems = "center";
+            item.style.gap = "8px";
+            item.style.padding = "5px 6px";
+            item.style.borderRadius = "6px";
+            item.style.cursor = "pointer";
+            item.style.fontSize = "12px";
+            item.style.color = "#f7f5ff";
+            item.style.userSelect = "none";
+
+            const cb = document.createElement("input");
+            cb.type = "checkbox";
+            cb.checked = selectedLangs.has(lang.code);
+            cb.style.margin = "0";
+            cb.style.cursor = "pointer";
+
+            const text = document.createElement("span");
+            text.textContent = lang.label;
+
+            item.append(cb, text);
+
+            item.addEventListener("mouseenter", () => { item.style.background = "#202830"; });
+            item.addEventListener("mouseleave", () => { item.style.background = "transparent"; });
+
+            cb.addEventListener("change", () => {
+                if (cb.checked) selectedLangs.add(lang.code);
+                else selectedLangs.delete(lang.code);
+                updateLangTriggerLabel();
+                saveStoredLangs(selectedLangs);
+            });
+
+            langMenu.appendChild(item);
+        });
+
+        updateLangTriggerLabel();
+
+        let langMenuOpen = false;
+        function setLangMenuOpen(open) {
+            langMenuOpen = open;
+            langMenu.style.display = open ? "block" : "none";
+        }
+        langTrigger.addEventListener("click", (e) => {
+            e.stopPropagation();
+            setLangMenuOpen(!langMenuOpen);
+        });
+        document.addEventListener("click", (e) => {
+            if (!langWrap.contains(e.target)) setLangMenuOpen(false);
+        });
+
+        langWrap.append(langTrigger, langMenu);
 
         const buttonsRow = document.createElement("div");
         buttonsRow.style.display = "flex";
@@ -116,7 +242,7 @@
         startBtn.style.letterSpacing = "0.16em";
         startBtn.addEventListener("click", () => {
             GG.game.start(select.value, {
-                englishOnly: englishCheckbox.checked
+                languages: new Set(selectedLangs)
             });
         });
 
@@ -168,7 +294,8 @@
         panel.appendChild(title);
         panel.appendChild(label);
         panel.appendChild(select);
-        panel.appendChild(englishRow);
+        panel.appendChild(langLabel);
+        panel.appendChild(langWrap);
         panel.appendChild(buttonsRow);
 
         document.body.appendChild(panel);
@@ -295,14 +422,21 @@
     #gg-answer-area input[type="text"] { padding:7px 10px; border-radius:10px; border:1px solid var(--border); background:var(--panel-soft); color:var(--text-main); font-size:13px; outline:none; }
     #gg-answer-area input[type="text"]::placeholder { color:#8d99a5; }
     #gg-answer-area input[type="text"]:focus { border-color:var(--accent); box-shadow: 0 0 0 1px rgba(64,188,244,0.7), 0 0 0 8px rgba(64,188,244,0.18); }
+    #gg-answer-area input[type="text"]:disabled { opacity:0.4; cursor:not-allowed; }
 
     /* Dropdown */
     #gg-answer-select { padding:7px 10px; border-radius:10px; border:1px solid var(--border); background:var(--panel-soft); color:var(--text-main); font-size:13px; outline:none; appearance:none; -webkit-appearance:none; -moz-appearance:none; }
     #gg-answer-select:focus { border-color:var(--accent); box-shadow: 0 0 0 1px rgba(64,188,244,0.7), 0 0 0 8px rgba(64,188,244,0.18); }
+    #gg-answer-select:disabled { opacity:0.4; cursor:not-allowed; }
 
     /* Primary button */
     #gg-submit-btn { margin-top:6px; padding:8px 14px; border-radius:999px; border:none; background:var(--primary); color:#05130a; font-size:13px; font-weight:600; cursor:pointer; align-self:flex-start; text-transform:uppercase; letter-spacing:0.16em; }
     #gg-submit-btn:hover { background:#00c649; } #gg-submit-btn:active { background:#00ad3f; }
+    #gg-submit-btn:disabled { background:#2c3742; color:#6b7884; cursor:not-allowed; }
+    #gg-submit-btn:disabled:hover { background:#2c3742; }
+
+    /* Review box loading state */
+    #gg-review-text.-loading { color: var(--text-muted); font-style: italic; }
 
     /* Feedback */
     #gg-feedback { margin-top:6px; font-size:13px; min-height:18px; color:var(--text-muted); }
@@ -623,8 +757,15 @@
         if (!reviewBox) return;
 
         if (state.currentQuestionIndex >= state.questionQueue.length) {
-            // show final score instead of the plain finished text
-            GG.ui.showFinalScore();
+            if (state.scrapingComplete) {
+                // Out of questions and nothing more is coming.
+                GG.ui.showFinalScore();
+            } else {
+                // Player has caught up to the scraper; show a loading
+                // placeholder until the next question lands.
+                state.waitingForNext = true;
+                GG.ui.showWaitingForNext();
+            }
             if (feedbackEl) {
                 feedbackEl.textContent = "";
             }
@@ -633,6 +774,13 @@
 
         const question = state.questionQueue[state.currentQuestionIndex];
         reviewBox.textContent = question.reviewText;
+        reviewBox.classList.remove("-loading");
+
+        const submitBtn = doc.getElementById("gg-submit-btn");
+        const selectEl = doc.getElementById("gg-answer-select");
+        if (submitBtn) submitBtn.disabled = false;
+        if (searchInput) searchInput.disabled = false;
+        if (selectEl) selectEl.disabled = false;
 
         if (feedbackEl) {
             feedbackEl.textContent = "";
@@ -641,6 +789,33 @@
             searchInput.value = "";
         }
         GG.ui.updateAnswerOptions("");
+    };
+
+    // Shown when the player has answered every question we've scraped so far
+    // but the background scraper is still working. The quiz scaffolding stays
+    // intact; we just blank the review and disable inputs until the next
+    // question arrives and renderCurrentQuestion re-enables them.
+    GG.ui.showWaitingForNext = function showWaitingForNext() {
+        const iframe = state.gameIframe;
+        if (!iframe) return;
+        const doc = iframe.contentDocument;
+        if (!doc) return;
+
+        const reviewBox = doc.getElementById("gg-review-text");
+        const feedbackEl = doc.getElementById("gg-feedback");
+        const submitBtn = doc.getElementById("gg-submit-btn");
+        const selectEl = doc.getElementById("gg-answer-select");
+        const searchInputId = state._searchInputId || 'gg-search-input';
+        const searchInput = doc.getElementById(searchInputId);
+
+        if (reviewBox) {
+            reviewBox.textContent = "Loading next question…";
+            reviewBox.classList.add("-loading");
+        }
+        if (feedbackEl) feedbackEl.textContent = "";
+        if (submitBtn) submitBtn.disabled = true;
+        if (searchInput) searchInput.disabled = true;
+        if (selectEl) selectEl.disabled = true;
     };
 
     // New: show final score centered in the main view
