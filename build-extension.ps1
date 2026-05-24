@@ -3,7 +3,17 @@ $ErrorActionPreference = 'Stop'
 $scriptDir = $PSScriptRoot
 $srcDir = Join-Path $scriptDir 'guessing-game'
 $distDir = Join-Path $scriptDir 'dist'
+$archiveDir = Join-Path $distDir 'archive'
 New-Item -ItemType Directory -Force -Path $distDir | Out-Null
+New-Item -ItemType Directory -Force -Path $archiveDir | Out-Null
+
+# Move any existing zips out of dist/ into dist/archive/ so dist/ always
+# holds only the latest chrome-edge + firefox pair.
+$existing = Get-ChildItem -Path $distDir -File -Filter '*.zip'
+if ($existing) {
+    $existing | Move-Item -Destination $archiveDir -Force
+    Write-Host "Archived $($existing.Count) old zip(s) to: $archiveDir"
+}
 
 $now = Get-Date
 $padded = '{0:yy}.{0:MM}.{0:dd}.{0:HHmm}' -f $now
@@ -43,7 +53,7 @@ function New-NormalizedZip {
     }
 }
 
-$chromeZip = Join-Path $distDir "guessing-game-$padded.zip"
+$chromeZip = Join-Path $distDir "$padded-guessing-game-chrome-edge.zip"
 New-NormalizedZip -SourceDir $srcDir -ZipPath $chromeZip
 Write-Host "Chrome/Edge zip: $chromeZip"
 
@@ -65,7 +75,7 @@ try {
     $ffManifest | Add-Member -NotePropertyName browser_specific_settings -NotePropertyValue $gecko -Force
     $ffManifest | ConvertTo-Json -Depth 10 | Set-Content $ffManifestPath -Encoding UTF8
 
-    $firefoxZip = Join-Path $distDir "guessing-game-firefox-$padded.zip"
+    $firefoxZip = Join-Path $distDir "$padded-guessing-game-firefox.zip"
     New-NormalizedZip -SourceDir $ffStage -ZipPath $firefoxZip
     Write-Host "Firefox zip: $firefoxZip"
 } finally {
