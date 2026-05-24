@@ -419,12 +419,17 @@
 
         if (scoreEl) scoreEl.style.display = "none";
 
-        main.innerHTML = `
-          <div id="gg-loading-text">Gathering reviews...</div>
-          <div id="gg-progress-outer">
-            <div id="gg-progress-inner"></div>
-          </div>
-        `;
+        const loadingText = doc.createElement("div");
+        loadingText.id = "gg-loading-text";
+        loadingText.textContent = "Gathering reviews...";
+
+        const progressOuter = doc.createElement("div");
+        progressOuter.id = "gg-progress-outer";
+        const progressInner = doc.createElement("div");
+        progressInner.id = "gg-progress-inner";
+        progressOuter.appendChild(progressInner);
+
+        main.replaceChildren(loadingText, progressOuter);
     };
 
     GG.ui.showNoQuestions = function showNoQuestionsUI() {
@@ -440,11 +445,11 @@
 
         if (scoreEl) scoreEl.style.display = "none";
 
-        main.innerHTML = `
-          <div id="gg-noq-text">
-            Could not generate any questions from this list for the selected rating.
-          </div>
-        `;
+        const noqText = doc.createElement("div");
+        noqText.id = "gg-noq-text";
+        noqText.textContent = "Could not generate any questions from this list for the selected rating.";
+
+        main.replaceChildren(noqText);
 
         // close button already wired by attachBaseGameHandlers
     };
@@ -468,22 +473,48 @@
         const uniqueId = `gg-search-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
         state._searchInputId = uniqueId;
 
-        main.innerHTML = `
-          <!-- hidden dummy input to further reduce autofill hints -->
-          <input id="gg-search-input-placeholder" name="nope" autocomplete="off" type="text" />
+        // hidden dummy input to further reduce autofill hints
+        const placeholder = doc.createElement("input");
+        placeholder.id = "gg-search-input-placeholder";
+        placeholder.name = "nope";
+        placeholder.type = "text";
+        placeholder.autocomplete = "off";
 
-          <div id="gg-review-box">
-            <div id="gg-review-text"></div>
-          </div>
+        const reviewBox = doc.createElement("div");
+        reviewBox.id = "gg-review-box";
+        const reviewText = doc.createElement("div");
+        reviewText.id = "gg-review-text";
+        reviewBox.appendChild(reviewText);
 
-          <div id="gg-answer-area">
-            <label for="${uniqueId}">Search for the film:</label>
-            <input id="${uniqueId}" name="${uniqueId}" type="text" placeholder="Type to filter films..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
-            <select id="gg-answer-select"></select>
-            <button id="gg-submit-btn">Confirm guess</button>
-            <div id="gg-feedback"></div>
-          </div>
-        `;
+        const answerArea = doc.createElement("div");
+        answerArea.id = "gg-answer-area";
+
+        const label = doc.createElement("label");
+        label.htmlFor = uniqueId;
+        label.textContent = "Search for the film:";
+
+        const searchInput = doc.createElement("input");
+        searchInput.id = uniqueId;
+        searchInput.name = uniqueId;
+        searchInput.type = "text";
+        searchInput.placeholder = "Type to filter films...";
+        searchInput.autocomplete = "off";
+        searchInput.spellcheck = false;
+        searchInput.setAttribute("autocorrect", "off");
+        searchInput.setAttribute("autocapitalize", "off");
+
+        const select = doc.createElement("select");
+        select.id = "gg-answer-select";
+
+        const submitBtn = doc.createElement("button");
+        submitBtn.id = "gg-submit-btn";
+        submitBtn.textContent = "Confirm guess";
+
+        const feedback = doc.createElement("div");
+        feedback.id = "gg-feedback";
+
+        answerArea.append(label, searchInput, select, submitBtn, feedback);
+        main.replaceChildren(placeholder, reviewBox, answerArea);
 
         GG.ui.attachQuizHandlers();
         GG.ui.renderCurrentQuestion();
@@ -563,7 +594,7 @@
         if (!selectEl) return;
 
         const term = (filterText || "").toLowerCase();
-        selectEl.innerHTML = "";
+        selectEl.replaceChildren();
 
         state.filmOptions.forEach(opt => {
             const titleLower = opt.title.toLowerCase();
@@ -628,14 +659,23 @@
         const total = state.questionQueue ? state.questionQueue.length : 0;
         const score = typeof state.score === 'number' ? state.score : 0;
 
-        main.innerHTML = `
-          <div id="gg-final-score">
-            <div class="score-box">
-              <div class="score-number">${score} / ${total}</div>
-              <div class="score-subtext">Your final score</div>
-            </div>
-          </div>
-        `;
+        const finalScore = doc.createElement("div");
+        finalScore.id = "gg-final-score";
+
+        const scoreBox = doc.createElement("div");
+        scoreBox.className = "score-box";
+
+        const scoreNumber = doc.createElement("div");
+        scoreNumber.className = "score-number";
+        scoreNumber.textContent = `${score} / ${total}`;
+
+        const scoreSubtext = doc.createElement("div");
+        scoreSubtext.className = "score-subtext";
+        scoreSubtext.textContent = "Your final score";
+
+        scoreBox.append(scoreNumber, scoreSubtext);
+        finalScore.appendChild(scoreBox);
+        main.replaceChildren(finalScore);
     };
 
     GG.ui.updateScore = function updateScoreUI() {
